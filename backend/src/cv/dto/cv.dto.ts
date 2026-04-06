@@ -8,7 +8,7 @@ import {
   IsBoolean,
   MaxLength,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
 class PersonalInfoDto {
@@ -64,6 +64,11 @@ class ExperienceDto {
   @IsArray()
   @IsString({ each: true })
   achievements?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tags?: string[];
 }
 
 class EducationDto {
@@ -86,6 +91,11 @@ class EducationDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tags?: string[];
 }
 
 class SkillCategoryDto {
@@ -143,9 +153,19 @@ class CvContentDto {
 
   @IsOptional()
   @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => LanguageDto)
-  languages?: LanguageDto[];
+  @Transform(({ value }) => {
+    if (!Array.isArray(value)) return value;
+    return value.map((language) =>
+      typeof language === 'string'
+        ? { name: language, level: 'Non spécifié' }
+        : {
+            name: String(language?.name ?? ''),
+            level: String(language?.level ?? 'Non spécifié'),
+          },
+    );
+  })
+  @IsObject({ each: true })
+  languages?: { name: string; level: string }[];
 
   @IsOptional()
   @IsArray()

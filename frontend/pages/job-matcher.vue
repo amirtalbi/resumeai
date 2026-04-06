@@ -177,7 +177,7 @@
               variant="outline"
               @click="applyOptimization"
             >
-              Appliquer les modifications au CV
+              Créer une copie optimisée du CV
             </UButton>
           </div>
         </UCard>
@@ -264,9 +264,23 @@ const optimize = async () => {
 
 const applyOptimization = async () => {
   if (!aiStore.result?.optimizedContent || !selectedCvId.value) return;
-  await cvStore.updateCv(selectedCvId.value, {
-    contentJson: aiStore.result.optimizedContent as any,
-  });
-  navigateTo(`/cv-editor?id=${selectedCvId.value}`);
+
+  const sourceCv = cvStore.cvs.find((cv) => cv.id === selectedCvId.value);
+  const selectedJob = jobOfferStore.jobOffers.find((job) => job.id === selectedJobId.value);
+
+  const baseTitle = (sourceCv?.title || 'CV').trim();
+  const companyOrJob =
+    (selectedJob?.company && selectedJob.company.trim()) ||
+    (selectedJob?.title && selectedJob.title.trim()) ||
+    'Optimisation IA';
+
+  const nextTitle = `${baseTitle} - ${companyOrJob}`.slice(0, 200);
+
+  const createdCv = await cvStore.createCv(
+    nextTitle,
+    aiStore.result.optimizedContent as any,
+  );
+
+  navigateTo(`/cv-editor?id=${createdCv.id}`);
 };
 </script>

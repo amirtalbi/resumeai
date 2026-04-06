@@ -71,7 +71,7 @@ export class AiOptimizationService {
     const available = await this.ollamaService.isAvailable();
     return {
       status: available ? 'available' : 'unavailable',
-      model: process.env.OLLAMA_MODEL || 'mistral:7b-instruct',
+      model: process.env.OLLAMA_MODEL || 'mistral',
     };
   }
 }

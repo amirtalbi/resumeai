@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import axios from 'axios';
 
 export interface OllamaResponse {
   model: string;
@@ -8,11 +7,24 @@ export interface OllamaResponse {
   done: boolean;
 }
 
+class HttpStatusError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly responseBody: string,
+  ) {
+    super(message);
+  }
+}
+
 @Injectable()
 export class OllamaService {
   private readonly logger = new Logger(OllamaService.name);
   private readonly baseUrl: string;
   private readonly model: string;
+  private readonly timeoutMs: number;
+  private readonly numPredict: number;
+  private modelPullAttempted = false;
 
   constructor(private readonly configService: ConfigService) {
     this.baseUrl = this.configService.get<string>(
@@ -21,14 +33,20 @@ export class OllamaService {
     );
     this.model = this.configService.get<string>(
       'OLLAMA_MODEL',
-      'mistral:7b-instruct',
+      'mistral',
+    );
+    this.timeoutMs = Number(
+      this.configService.get<string>('OLLAMA_TIMEOUT_MS', '300000'),
+    );
+    this.numPredict = Number(
+      this.configService.get<string>('OLLAMA_NUM_PREDICT', '1024'),
     );
   }
 
   async generate(prompt: string): Promise<string> {
     try {
-      const response = await axios.post(
-        `${this.baseUrl}/api/generate`,
+      const response = await this.postJson<{ response: string }>(
+        '/api/generate',
         {
           model: this.model,
           prompt,
@@ -36,16 +54,27 @@ export class OllamaService {
           options: {
             temperature: 0.7,
             top_p: 0.9,
-            num_predict: 4096,
+            num_predict: this.numPredict,
           },
         },
-        {
-          timeout: 120000,
-        },
+        this.timeoutMs,
       );
 
-      return response.data.response;
+      return response.response;
     } catch (error) {
+      if (
+        !this.modelPullAttempted &&
+        error instanceof HttpStatusError &&
+        error.status === 404
+      ) {
+        this.modelPullAttempted = true;
+        this.logger.warn(
+          `Model ${this.model} not available in Ollama, pulling model and retrying once`,
+        );
+        await this.pullModel();
+        return this.generate(prompt);
+      }
+
       this.logger.error('Ollama API call failed', error);
       throw new Error(
         `Failed to generate AI response: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -53,14 +82,89 @@ export class OllamaService {
     }
   }
 
+  private async pullModel(): Promise<void> {
+    try {
+      await this.postJson(
+        '/api/pull',
+        {
+          model: this.model,
+          stream: false,
+        },
+        600000,
+      );
+      this.logger.log(`Ollama model pulled successfully: ${this.model}`);
+    } catch (error) {
+      this.logger.error(`Failed to pull Ollama model: ${this.model}`, error);
+      throw error;
+    }
+  }
+
   async isAvailable(): Promise<boolean> {
     try {
-      const response = await axios.get(`${this.baseUrl}/api/tags`, {
-        timeout: 5000,
-      });
-      return response.status === 200;
+      await this.getJson('/api/tags', 5000);
+      return true;
     } catch {
       return false;
+    }
+  }
+
+  private async getJson<T = unknown>(path: string, timeoutMs: number): Promise<T> {
+    const url = `${this.baseUrl}${path}`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const responseBody = await response.text();
+        throw new HttpStatusError(
+          `Request failed: GET ${path} (${response.status})`,
+          response.status,
+          responseBody,
+        );
+      }
+
+      return (await response.json()) as T;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  private async postJson<T = unknown>(
+    path: string,
+    payload: unknown,
+    timeoutMs: number,
+  ): Promise<T> {
+    const url = `${this.baseUrl}${path}`;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const responseBody = await response.text();
+        throw new HttpStatusError(
+          `Request failed: POST ${path} (${response.status})`,
+          response.status,
+          responseBody,
+        );
+      }
+
+      return (await response.json()) as T;
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 
@@ -70,15 +174,29 @@ export class OllamaService {
     keywords: string[],
     requiredSkills: string[],
   ): string {
+    const cvLanguage = this.detectCvLanguage(cvContent);
+
     return `Tu es un expert en rédaction de CV et en recrutement. Ta tâche est d'adapter le CV suivant pour qu'il corresponde au mieux à l'offre d'emploi donnée.
 
 INSTRUCTIONS:
 1. Conserve la structure du CV
-2. Ajoute les mots-clés manquants de manière naturelle
-3. Reformule les expériences pour mettre en valeur les compétences demandées
+2. N'ajoute AUCUNE information factuelle absente du CV source
+3. N'ajoute PAS de nouvelles compétences, technologies, outils, certifications, diplômes, entreprises, postes, dates ou missions
+4. N'invente PAS de projets ni de responsabilités
+5. Reformule uniquement le style pour clarifier et mieux cibler le poste
+6. Tu peux uniquement améliorer le résumé et la formulation des descriptions d'expériences existantes
+7. Si un mot-clé est absent du CV source, ne l'insère pas dans le CV: place-le uniquement dans "addedKeywords"
+8. Les champs factuels (noms de technos, entreprises, intitulés de poste, dates, niveaux) doivent rester inchangés
 4. Améliore le résumé professionnel pour cibler le poste
-5. Ne fabrique PAS de nouvelles expériences ou diplômes
-6. Réponds UNIQUEMENT avec un JSON valide
+9. Ne fabrique PAS de nouvelles expériences ou diplômes
+10. Réponds UNIQUEMENT avec un JSON valide
+11. N'écris AUCUN texte hors JSON (pas de markdown, pas de commentaire)
+12. Limite "changes" à 6 éléments maximum
+13. Limite "addedKeywords" à 12 éléments maximum, sans doublons
+14. "addedKeywords" doit contenir des termes courts (1 à 3 mots)
+15. Conserve STRICTEMENT la langue d'origine du CV
+16. N'effectue AUCUNE traduction (ex: français vers anglais ou anglais vers français)
+17. Toute reformulation doit rester dans la langue "${cvLanguage}"
 
 CV ACTUEL:
 ${JSON.stringify(cvContent, null, 2)}
@@ -98,5 +216,54 @@ Réponds avec un JSON valide contenant:
   "addedKeywords": ["mot1", "mot2"],
   "compatibilityScore": 85
 }`;
+  }
+
+  private detectCvLanguage(cvContent: Record<string, unknown>): 'fr' | 'en' {
+    const text = JSON.stringify(cvContent).toLowerCase();
+
+    const frenchMarkers = [
+      ' le ',
+      ' la ',
+      ' les ',
+      ' des ',
+      ' et ',
+      ' avec ',
+      ' pour ',
+      ' en ',
+      'de ',
+      'diplome',
+      'experience',
+      'projet',
+      'responsable',
+      'developpeur',
+      'francais',
+    ];
+    const englishMarkers = [
+      ' the ',
+      ' and ',
+      ' with ',
+      ' for ',
+      ' in ',
+      ' of ',
+      'experience',
+      'project',
+      'responsible',
+      'developer',
+      'english',
+      'summary',
+      'skills',
+      'education',
+    ];
+
+    const frenchScore = frenchMarkers.reduce(
+      (score, marker) => score + (text.includes(marker) ? 1 : 0),
+      0,
+    );
+    const englishScore = englishMarkers.reduce(
+      (score, marker) => score + (text.includes(marker) ? 1 : 0),
+      0,
+    );
+
+    return frenchScore >= englishScore ? 'fr' : 'en';
   }
 }

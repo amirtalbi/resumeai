@@ -72,12 +72,7 @@
         <!-- Experiences -->
         <UCard>
           <template #header>
-            <div class="flex justify-between items-center">
-              <h2 class="font-semibold">Expériences</h2>
-              <UButton size="xs" icon="i-heroicons-plus" @click="addExperience">
-                Ajouter
-              </UButton>
-            </div>
+            <h2 class="font-semibold">Expériences</h2>
           </template>
           <div class="space-y-6">
             <div
@@ -113,6 +108,18 @@
               <UFormGroup label="Description" class="mt-3">
                 <UTextarea v-model="exp.description" :rows="3" />
               </UFormGroup>
+              <UFormGroup label="Tags (séparés par des virgules)" class="mt-3">
+                <UInput
+                  :model-value="(exp.tags || []).join(', ')"
+                  @update:model-value="(val: string) => exp.tags = val.split(',').map((s: string) => s.trim()).filter(Boolean)"
+                />
+              </UFormGroup>
+            </div>
+
+            <div class="pt-1">
+              <UButton size="xs" icon="i-heroicons-plus" @click="addExperience">
+                Ajouter
+              </UButton>
             </div>
           </div>
         </UCard>
@@ -120,12 +127,7 @@
         <!-- Education -->
         <UCard>
           <template #header>
-            <div class="flex justify-between items-center">
-              <h2 class="font-semibold">Formation</h2>
-              <UButton size="xs" icon="i-heroicons-plus" @click="addEducation">
-                Ajouter
-              </UButton>
-            </div>
+            <h2 class="font-semibold">Formation</h2>
           </template>
           <div class="space-y-6">
             <div
@@ -158,6 +160,18 @@
                   </div>
                 </UFormGroup>
               </div>
+              <UFormGroup label="Tags (séparés par des virgules)" class="mt-3">
+                <UInput
+                  :model-value="(edu.tags || []).join(', ')"
+                  @update:model-value="(val: string) => edu.tags = val.split(',').map((s: string) => s.trim()).filter(Boolean)"
+                />
+              </UFormGroup>
+            </div>
+
+            <div class="pt-1">
+              <UButton size="xs" icon="i-heroicons-plus" @click="addEducation">
+                Ajouter
+              </UButton>
             </div>
           </div>
         </UCard>
@@ -165,12 +179,7 @@
         <!-- Skills -->
         <UCard>
           <template #header>
-            <div class="flex justify-between items-center">
-              <h2 class="font-semibold">Compétences</h2>
-              <UButton size="xs" icon="i-heroicons-plus" @click="addSkillCategory">
-                Ajouter catégorie
-              </UButton>
-            </div>
+            <h2 class="font-semibold">Compétences</h2>
           </template>
           <div class="space-y-4">
             <div
@@ -196,18 +205,19 @@
                 />
               </UFormGroup>
             </div>
+
+            <div class="pt-1">
+              <UButton size="xs" icon="i-heroicons-plus" @click="addSkillCategory">
+                Ajouter catégorie
+              </UButton>
+            </div>
           </div>
         </UCard>
 
         <!-- Languages -->
         <UCard>
           <template #header>
-            <div class="flex justify-between items-center">
-              <h2 class="font-semibold">Langues</h2>
-              <UButton size="xs" icon="i-heroicons-plus" @click="addLanguage">
-                Ajouter
-              </UButton>
-            </div>
+            <h2 class="font-semibold">Langues</h2>
           </template>
           <div class="space-y-3">
             <div
@@ -231,6 +241,12 @@
                 variant="ghost"
                 @click="removeLanguage(index)"
               />
+            </div>
+
+            <div class="pt-1">
+              <UButton size="xs" icon="i-heroicons-plus" @click="addLanguage">
+                Ajouter
+              </UButton>
             </div>
           </div>
         </UCard>
@@ -297,6 +313,7 @@ const addExperience = () => {
     current: false,
     description: '',
     achievements: [],
+    tags: [],
   });
 };
 
@@ -311,6 +328,7 @@ const addEducation = () => {
     field: '',
     startDate: '',
     endDate: '',
+    tags: [],
   });
 };
 

@@ -58,6 +58,7 @@ export interface CvContent {
     current?: boolean;
     description: string;
     achievements?: string[];
+    tags?: string[];
   }[];
   education: {
     institution: string;
@@ -66,6 +67,7 @@ export interface CvContent {
     startDate: string;
     endDate?: string;
     description?: string;
+    tags?: string[];
   }[];
   skills: {
     category: string;

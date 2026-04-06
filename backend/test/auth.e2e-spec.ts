@@ -2,18 +2,14 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import * as request from 'supertest';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { AuthModule } from '../src/auth/auth.module';
 import { User } from '../src/auth/entities/user.entity';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 
 describe('AuthController (e2e)', () => {
   let app: INestApplication;
   let userRepository: Record<string, jest.Mock>;
-  let jwtService: JwtService;
 
   const mockUser = {
     id: 'test-uuid',
@@ -50,15 +46,8 @@ describe('AuthController (e2e)', () => {
             }),
           ],
         }),
+        AuthModule,
       ],
-      providers: [
-        ...AuthModule['providers'] || [],
-        {
-          provide: getRepositoryToken(User),
-          useValue: userRepository,
-        },
-      ],
-      controllers: [...AuthModule['controllers'] || []],
     })
       .overrideProvider(getRepositoryToken(User))
       .useValue(userRepository)
@@ -70,8 +59,6 @@ describe('AuthController (e2e)', () => {
     );
     app.setGlobalPrefix('api');
     await app.init();
-
-    jwtService = moduleFixture.get<JwtService>(JwtService);
   });
 
   afterAll(async () => {

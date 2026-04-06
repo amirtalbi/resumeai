@@ -109,6 +109,16 @@ describe('JobOfferService', () => {
       expect(keywords).not.toContain('are');
       expect(keywords).not.toContain('for');
     });
+
+    it('should prioritize technical skills in keywords for long descriptions', () => {
+      const text =
+        'Nous cherchons un profil backend senior. Le poste couvre architecture, mentoring, delivery, communication, roadmap, product thinking et coordination. Stack: nodejs, docker, postgresql.';
+      const keywords = service.extractKeywords(text);
+
+      expect(keywords).toContain('node.js');
+      expect(keywords).toContain('docker');
+      expect(keywords).toContain('postgresql');
+    });
   });
 
   describe('extractSkills', () => {
@@ -129,6 +139,14 @@ describe('JobOfferService', () => {
       const skills = service.extractSkills(text);
 
       expect(skills).toEqual([]);
+    });
+
+    it('should detect nodejs variant spellings', () => {
+      const text = 'Experience required in nodejs, node js, docker and cloud.';
+      const skills = service.extractSkills(text);
+
+      expect(skills).toContain('Node.js');
+      expect(skills).toContain('Docker');
     });
   });
 

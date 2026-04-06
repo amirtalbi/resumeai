@@ -26,13 +26,13 @@ export class PdfExportService {
         // Header - Name
         doc
           .font('Helvetica-Bold')
-          .fontSize(24)
+          .fontSize(26)
           .text(
             `${cvContent.personalInfo.firstName} ${cvContent.personalInfo.lastName}`,
             { align: 'center' },
           );
 
-        doc.moveDown(0.3);
+        doc.moveDown(0.65);
 
         // Contact info
         const contactParts: string[] = [];
@@ -47,128 +47,152 @@ export class PdfExportService {
 
         doc
           .font('Helvetica')
-          .fontSize(10)
+          .fontSize(11)
           .text(contactParts.join(' | '), { align: 'center' });
 
-        doc.moveDown(0.5);
+        doc.moveDown(1);
         this.drawLine(doc);
 
         // Summary
         if (cvContent.summary) {
-          doc.moveDown(0.5);
+          doc.moveDown(1.05);
           this.addSectionTitle(doc, 'PROFIL PROFESSIONNEL');
-          doc.font('Helvetica').fontSize(10).text(cvContent.summary, {
+          doc.font('Helvetica').fontSize(11).text(cvContent.summary, {
             align: 'justify',
-            lineGap: 2,
+            lineGap: 3.5,
           });
         }
 
         // Experience
         if (cvContent.experiences?.length > 0) {
-          doc.moveDown(0.5);
+          doc.moveDown(1.05);
           this.addSectionTitle(doc, 'EXPÉRIENCE PROFESSIONNELLE');
 
           for (const exp of cvContent.experiences) {
-            doc.moveDown(0.3);
+            doc.moveDown(0.7);
             doc
               .font('Helvetica-Bold')
-              .fontSize(11)
+              .fontSize(12)
               .text(exp.position, { continued: false });
 
             doc
               .font('Helvetica')
-              .fontSize(10)
+              .fontSize(11)
               .fillColor('#666666')
               .text(
                 `${exp.company} | ${exp.startDate} - ${exp.current ? 'Présent' : exp.endDate || ''}`,
               );
             doc.fillColor('#000000');
 
-            doc.moveDown(0.2);
-            doc.font('Helvetica').fontSize(10).text(exp.description, {
+            doc.moveDown(0.4);
+            doc.font('Helvetica').fontSize(11).text(exp.description, {
               align: 'justify',
-              lineGap: 1,
+              lineGap: 2.6,
             });
 
             if (exp.achievements?.length) {
-              doc.moveDown(0.2);
+              doc.moveDown(0.4);
               for (const achievement of exp.achievements) {
                 doc
                   .font('Helvetica')
-                  .fontSize(10)
-                  .text(`• ${achievement}`, { indent: 15, lineGap: 1 });
+                  .fontSize(11)
+                  .text(`• ${achievement}`, { indent: 15, lineGap: 2.3 });
               }
+            }
+
+            if (exp.tags?.length) {
+              doc.moveDown(0.35);
+              doc
+                .font('Helvetica-Oblique')
+                .fontSize(10)
+                .fillColor('#444444')
+                .text(`Tags: ${exp.tags.join(', ')}`);
+              doc.fillColor('#000000');
             }
           }
         }
 
         // Education
         if (cvContent.education?.length > 0) {
-          doc.moveDown(0.5);
+          doc.moveDown(1.05);
           this.addSectionTitle(doc, 'FORMATION');
 
           for (const edu of cvContent.education) {
-            doc.moveDown(0.3);
+            doc.moveDown(0.7);
             doc
               .font('Helvetica-Bold')
-              .fontSize(11)
+              .fontSize(12)
               .text(`${edu.degree} - ${edu.field}`);
 
             doc
               .font('Helvetica')
-              .fontSize(10)
+              .fontSize(11)
               .text(
                 `${edu.institution} | ${edu.startDate} - ${edu.endDate || ''}`,
               );
 
             if (edu.description) {
-              doc.moveDown(0.1);
-              doc.font('Helvetica').fontSize(10).text(edu.description);
+              doc.moveDown(0.35);
+              doc.font('Helvetica').fontSize(11).text(edu.description, {
+                lineGap: 2,
+              });
+            }
+
+            if (edu.tags?.length) {
+              doc.moveDown(0.35);
+              doc
+                .font('Helvetica-Oblique')
+                .fontSize(10)
+                .fillColor('#444444')
+                .text(`Tags: ${edu.tags.join(', ')}`);
+              doc.fillColor('#000000');
             }
           }
         }
 
         // Skills
         if (cvContent.skills?.length > 0) {
-          doc.moveDown(0.5);
+          doc.moveDown(1.05);
           this.addSectionTitle(doc, 'COMPÉTENCES');
 
           for (const skillCategory of cvContent.skills) {
-            doc.moveDown(0.2);
+            doc.moveDown(0.45);
             doc
               .font('Helvetica-Bold')
-              .fontSize(10)
+              .fontSize(11)
               .text(`${skillCategory.category}: `, { continued: true });
             doc
               .font('Helvetica')
-              .fontSize(10)
+              .fontSize(11)
               .text(skillCategory.items.join(', '));
           }
         }
 
         // Languages
         if (cvContent.languages?.length) {
-          doc.moveDown(0.5);
+          doc.moveDown(1.05);
           this.addSectionTitle(doc, 'LANGUES');
 
           for (const lang of cvContent.languages) {
             doc
               .font('Helvetica')
-              .fontSize(10)
-              .text(`• ${lang.name}: ${lang.level}`);
+              .fontSize(11)
+              .text(`• ${lang.name}: ${lang.level}`, { lineGap: 2.1 });
           }
         }
 
         // Certifications
         if (cvContent.certifications?.length) {
-          doc.moveDown(0.5);
+          doc.moveDown(1.05);
           this.addSectionTitle(doc, 'CERTIFICATIONS');
 
           for (const cert of cvContent.certifications) {
             doc
               .font('Helvetica')
-              .fontSize(10)
-              .text(`• ${cert.name} - ${cert.issuer} (${cert.date})`);
+              .fontSize(11)
+              .text(`• ${cert.name} - ${cert.issuer} (${cert.date})`, {
+                lineGap: 2.1,
+              });
           }
         }
 
@@ -181,8 +205,8 @@ export class PdfExportService {
   }
 
   private addSectionTitle(doc: PDFKit.PDFDocument, title: string) {
-    doc.font('Helvetica-Bold').fontSize(13).text(title);
-    doc.moveDown(0.1);
+    doc.font('Helvetica-Bold').fontSize(15).text(title);
+    doc.moveDown(0.35);
     this.drawLine(doc);
   }
 
@@ -196,6 +220,6 @@ export class PdfExportService {
       .strokeColor('#333333')
       .lineWidth(0.5)
       .stroke();
-    doc.moveDown(0.2);
+    doc.moveDown(0.55);
   }
 }

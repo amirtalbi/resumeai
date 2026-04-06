@@ -22,6 +22,7 @@ describe('CvPreview', () => {
         current: false,
         description: 'Built web applications.',
         achievements: ['Increased performance by 50%'],
+        tags: ['Node.js', 'Docker'],
       },
     ],
     education: [
@@ -31,6 +32,7 @@ describe('CvPreview', () => {
         field: 'CS',
         startDate: '2015',
         endDate: '2020',
+        tags: ['Data Structures', 'Algorithms'],
       },
     ],
     skills: [
@@ -62,12 +64,16 @@ describe('CvPreview', () => {
     expect(wrapper.text()).toContain('Senior Developer');
     expect(wrapper.text()).toContain('Tech Corp');
     expect(wrapper.text()).toContain('Built web applications.');
+    expect(wrapper.text()).toContain('Node.js');
+    expect(wrapper.text()).toContain('Docker');
   });
 
   it('should render education', () => {
     const wrapper = mount(CvPreview, { props: { content: fullContent } });
     expect(wrapper.text()).toContain('Master');
     expect(wrapper.text()).toContain('University');
+    expect(wrapper.text()).toContain('Data Structures');
+    expect(wrapper.text()).toContain('Algorithms');
   });
 
   it('should render skills', () => {

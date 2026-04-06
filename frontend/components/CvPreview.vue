@@ -32,6 +32,9 @@
         </div>
         <p class="text-xs text-gray-600 italic">{{ exp.company }}</p>
         <p class="text-xs mt-1">{{ exp.description }}</p>
+        <p v-if="exp.tags?.length" class="text-xs mt-1 text-gray-700">
+          <strong>Techno :</strong> {{ exp.tags.join(', ') }}
+        </p>
         <ul v-if="exp.achievements?.length" class="list-disc list-inside text-xs mt-1">
           <li v-for="(a, j) in exp.achievements" :key="j">{{ a }}</li>
         </ul>
@@ -45,6 +48,9 @@
       <div v-for="(edu, i) in content.education" :key="i" class="mb-2">
         <strong class="text-xs">{{ edu.degree }} - {{ edu.field }}</strong>
         <p class="text-xs text-gray-600">{{ edu.institution }} | {{ edu.startDate }} - {{ edu.endDate }}</p>
+        <p v-if="edu.tags?.length" class="text-xs mt-1 text-gray-700">
+          <strong>Modules :</strong> {{ edu.tags.join(', ') }}
+        </p>
       </div>
     </div>
 
