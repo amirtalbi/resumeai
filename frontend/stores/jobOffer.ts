@@ -1,5 +1,7 @@
 import { defineStore } from 'pinia';
 
+export type JobOfferPlatform = 'linkedin' | 'indeed' | 'hellowork';
+
 export interface JobOffer {
   id: string;
   userId: string;
@@ -7,10 +9,22 @@ export interface JobOffer {
   description: string;
   company?: string;
   location?: string;
+  platform?: JobOfferPlatform;
+  sourceUrl?: string;
+  applicationUrl?: string;
+  externalId?: string;
   keywords: string[];
   requiredSkills: string[];
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ImportJobOffersResult {
+  platform: JobOfferPlatform;
+  imported: number;
+  skipped: number;
+  offers: JobOffer[];
+  warnings: string[];
 }
 
 interface JobOfferState {
@@ -48,6 +62,7 @@ export const useJobOfferStore = defineStore('jobOffer', {
       description: string;
       company?: string;
       location?: string;
+      applicationUrl?: string;
     }) {
       this.loading = true;
       this.error = null;
@@ -74,6 +89,34 @@ export const useJobOfferStore = defineStore('jobOffer', {
       } catch (e: unknown) {
         this.error =
           e instanceof Error ? e.message : 'Failed to delete job offer';
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async importJobOffers(data: {
+      platform: JobOfferPlatform;
+      keywords: string[];
+      location?: string;
+      limit?: number;
+    }) {
+      this.loading = true;
+      this.error = null;
+      try {
+        const api = useApi();
+        const result = await api.post<ImportJobOffersResult>('/job-offer/import', data);
+
+        if (Array.isArray(result.offers) && result.offers.length > 0) {
+          const existingIds = new Set(this.jobOffers.map((offer) => offer.id));
+          const imported = result.offers.filter((offer) => !existingIds.has(offer.id));
+          this.jobOffers = [...imported, ...this.jobOffers];
+        }
+
+        return result;
+      } catch (e: unknown) {
+        this.error =
+          e instanceof Error ? e.message : 'Failed to import job offers';
+        throw e;
       } finally {
         this.loading = false;
       }

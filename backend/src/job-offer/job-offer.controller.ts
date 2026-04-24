@@ -8,18 +8,25 @@ import {
   Param,
   UseGuards,
   ParseUUIDPipe,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JobOfferService } from './job-offer.service';
-import { CreateJobOfferDto, UpdateJobOfferDto } from './dto/job-offer.dto';
+import {
+  CreateJobOfferDto,
+  UpdateJobOfferDto,
+  ImportJobOffersDto,
+} from './dto/job-offer.dto';
 
 @ApiTags('Job Offers')
 @Controller('job-offer')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class JobOfferController {
+  private static readonly IMPORT_ALLOWED_EMAIL = 'amirotalbi94@gmail.com';
+
   constructor(private readonly jobOfferService: JobOfferService) {}
 
   @Post()
@@ -29,6 +36,25 @@ export class JobOfferController {
     @Body() dto: CreateJobOfferDto,
   ) {
     return this.jobOfferService.create(userId, dto);
+  }
+
+  @Post('import')
+  @ApiOperation({ summary: 'Import job offers from a selected platform' })
+  importOffers(
+    @CurrentUser('id') userId: string,
+    @CurrentUser('email') userEmail: string,
+    @Body() dto: ImportJobOffersDto,
+  ) {
+    if (
+      userEmail?.toLowerCase() !==
+      JobOfferController.IMPORT_ALLOWED_EMAIL.toLowerCase()
+    ) {
+      throw new ForbiddenException(
+        'Only amirotalbi94@gmail.com can manage automatic job imports.',
+      );
+    }
+
+    return this.jobOfferService.importFromPlatform(userId, dto);
   }
 
   @Get()

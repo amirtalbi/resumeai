@@ -2,11 +2,35 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JobOffer } from './entities/job-offer.entity';
-import { CreateJobOfferDto, UpdateJobOfferDto } from './dto/job-offer.dto';
+import {
+  CreateJobOfferDto,
+  UpdateJobOfferDto,
+  ImportJobOffersDto,
+  JobOfferPlatform,
+} from './dto/job-offer.dto';
+
+interface ScrapedJobOffer {
+  externalId?: string;
+  title: string;
+  description: string;
+  company?: string;
+  location?: string;
+  sourceUrl?: string;
+  applicationUrl?: string;
+}
+
+export interface ImportJobOffersResult {
+  platform: JobOfferPlatform;
+  imported: number;
+  skipped: number;
+  offers: JobOffer[];
+  warnings: string[];
+}
 
 @Injectable()
 export class JobOfferService {
@@ -25,6 +49,7 @@ export class JobOfferService {
       description: dto.description,
       company: dto.company,
       location: dto.location,
+      applicationUrl: dto.applicationUrl,
       keywords,
       requiredSkills,
     });
@@ -61,6 +86,9 @@ export class JobOfferService {
     if (dto.title) jobOffer.title = dto.title;
     if (dto.company) jobOffer.company = dto.company;
     if (dto.location) jobOffer.location = dto.location;
+    if (dto.applicationUrl !== undefined) {
+      jobOffer.applicationUrl = dto.applicationUrl;
+    }
     if (dto.description) {
       jobOffer.description = dto.description;
       jobOffer.keywords = this.extractKeywords(dto.description);
@@ -73,6 +101,120 @@ export class JobOfferService {
   async remove(id: string, userId: string): Promise<void> {
     const jobOffer = await this.findOne(id, userId);
     await this.jobOfferRepository.remove(jobOffer);
+  }
+
+  async importFromPlatform(
+    userId: string,
+    dto: ImportJobOffersDto,
+  ): Promise<ImportJobOffersResult> {
+    const keywords = dto.keywords.map((keyword) => keyword.trim()).filter(Boolean);
+    const limit = Math.min(Math.max(dto.limit ?? 10, 1), 25);
+
+    if (!keywords.length) {
+      throw new BadRequestException('At least one keyword is required');
+    }
+
+    const warnings: string[] = [];
+    let scrapedOffers: ScrapedJobOffer[] = [];
+
+    try {
+      scrapedOffers = await this.scrapeOffers(dto.platform, keywords, dto.location, limit);
+    } catch (error) {
+      warnings.push(this.getErrorMessage(error));
+      return {
+        platform: dto.platform,
+        imported: 0,
+        skipped: 0,
+        offers: [],
+        warnings,
+      };
+    }
+
+    if (!scrapedOffers.length) {
+      warnings.push('No offers were found for this query.');
+    }
+
+    const existingOffers = await this.jobOfferRepository.find({ where: { userId } });
+    const existingSourceUrls = new Set(
+      existingOffers
+        .map((offer) => this.normalizeSourceUrl(offer.sourceUrl))
+        .filter((value): value is string => Boolean(value)),
+    );
+    const existingExternalKeys = new Set(
+      existingOffers
+        .map((offer) => this.buildExternalKey(offer.platform, offer.externalId))
+        .filter((value): value is string => Boolean(value)),
+    );
+    const existingFingerprints = new Set(
+      existingOffers.map((offer) => this.buildFingerprint(offer.title, offer.company, offer.location)),
+    );
+
+    const savedOffers: JobOffer[] = [];
+    let skipped = 0;
+
+    for (const scraped of scrapedOffers.slice(0, limit)) {
+      const normalizedTitle = scraped.title.trim();
+      const normalizedDescription = scraped.description.trim();
+
+      if (!normalizedTitle || !normalizedDescription) {
+        skipped += 1;
+        continue;
+      }
+
+      const sourceKey = this.normalizeSourceUrl(scraped.sourceUrl);
+      const externalKey = this.buildExternalKey(dto.platform, scraped.externalId);
+      const fingerprint = this.buildFingerprint(
+        normalizedTitle,
+        scraped.company,
+        scraped.location,
+      );
+
+      if (
+        (sourceKey && existingSourceUrls.has(sourceKey)) ||
+        (externalKey && existingExternalKeys.has(externalKey)) ||
+        existingFingerprints.has(fingerprint)
+      ) {
+        skipped += 1;
+        continue;
+      }
+
+      const keywordsFromDescription = this.extractKeywords(normalizedDescription);
+      const requiredSkills = this.extractSkills(normalizedDescription);
+
+      const created = this.jobOfferRepository.create({
+        userId,
+        title: normalizedTitle,
+        description: normalizedDescription,
+        company: scraped.company?.trim() || undefined,
+        location: scraped.location?.trim() || undefined,
+        platform: dto.platform,
+        sourceUrl: scraped.sourceUrl?.trim() || undefined,
+        applicationUrl:
+          scraped.applicationUrl?.trim() || scraped.sourceUrl?.trim() || undefined,
+        externalId: scraped.externalId?.trim() || undefined,
+        keywords: keywordsFromDescription,
+        requiredSkills,
+      });
+
+      const saved = await this.jobOfferRepository.save(created);
+      savedOffers.push(saved);
+
+      if (sourceKey) {
+        existingSourceUrls.add(sourceKey);
+      }
+      if (externalKey) {
+        existingExternalKeys.add(externalKey);
+      }
+      existingFingerprints.add(fingerprint);
+    }
+
+    return {
+      platform: dto.platform,
+      imported: savedOffers.length,
+      skipped,
+      offers: savedOffers,
+      warnings,
+    };
   }
 
   extractKeywords(text: string): string[] {
@@ -219,5 +361,557 @@ export class JobOfferService {
         : 0;
 
     return { score, matchedSkills, missingSkills };
+  }
+
+  private async scrapeOffers(
+    platform: JobOfferPlatform,
+    keywords: string[],
+    location: string | undefined,
+    limit: number,
+  ): Promise<ScrapedJobOffer[]> {
+    switch (platform) {
+      case JobOfferPlatform.LINKEDIN:
+        return this.scrapeLinkedIn(keywords, location, limit);
+      case JobOfferPlatform.HELLOWORK:
+        return this.scrapeHellowork(keywords, location, limit);
+      case JobOfferPlatform.INDEED:
+        return this.scrapeIndeed(keywords, location, limit);
+      default:
+        return [];
+    }
+  }
+
+  private async scrapeLinkedIn(
+    keywords: string[],
+    location: string | undefined,
+    limit: number,
+  ): Promise<ScrapedJobOffer[]> {
+    const encodedKeywords = encodeURIComponent(keywords.join(' '));
+    const encodedLocation = encodeURIComponent(location?.trim() || 'France');
+    const pageSize = 25;
+    const results: ScrapedJobOffer[] = [];
+    const seenExternalIds = new Set<string>();
+
+    for (let start = 0; results.length < limit; start += pageSize) {
+      const searchUrl = `https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=${encodedKeywords}&location=${encodedLocation}&start=${start}`;
+      const searchHtml = await this.fetchText(searchUrl);
+      const cards = this.parseLinkedInCards(searchHtml);
+
+      if (!cards.length) {
+        break;
+      }
+
+      for (const card of cards) {
+        if (!card.externalId || seenExternalIds.has(card.externalId)) {
+          continue;
+        }
+
+        seenExternalIds.add(card.externalId);
+        const details = await this.fetchLinkedInDetails(card.externalId);
+
+        results.push({
+          ...card,
+          description:
+            details.description ||
+            `${card.title} chez ${card.company || 'une entreprise'} (${card.location || 'localisation non renseignée'}).`,
+          sourceUrl: card.sourceUrl || details.sourceUrl,
+          applicationUrl: details.applicationUrl || card.sourceUrl || details.sourceUrl,
+        });
+
+        if (results.length >= limit) {
+          break;
+        }
+      }
+
+      if (cards.length < pageSize) {
+        break;
+      }
+    }
+
+    return results;
+  }
+
+  private parseLinkedInCards(
+    html: string,
+  ): Array<Omit<ScrapedJobOffer, 'description'>> {
+    const cards: Array<Omit<ScrapedJobOffer, 'description'>> = [];
+    const listItemRegex = /<li>\s*([\s\S]*?)<\/li>/gi;
+
+    for (const match of html.matchAll(listItemRegex)) {
+      const block = match[1];
+      const externalId = this.extractFirstMatch(
+        block,
+        /data-entity-urn="urn:li:jobPosting:(\d+)"/i,
+      );
+
+      if (!externalId) {
+        continue;
+      }
+
+      const title = this.normalizeText(
+        this.stripHtml(
+          this.extractFirstMatch(block, /<h3[^>]*base-search-card__title[^>]*>([\s\S]*?)<\/h3>/i) ||
+            '',
+        ),
+      );
+
+      const company = this.normalizeText(
+        this.stripHtml(
+          this.extractFirstMatch(
+            block,
+            /<h4[^>]*base-search-card__subtitle[^>]*>[\s\S]*?<a[^>]*>([\s\S]*?)<\/a>/i,
+          ) || '',
+        ),
+      );
+
+      const cardLocation = this.normalizeText(
+        this.stripHtml(
+          this.extractFirstMatch(
+            block,
+            /<span[^>]*job-search-card__location[^>]*>([\s\S]*?)<\/span>/i,
+          ) || '',
+        ),
+      );
+
+      const relativeOrAbsoluteUrl = this.extractFirstMatch(
+        block,
+        /<a[^>]*base-card__full-link[^>]*href="([^"]+)"/i,
+      );
+
+      const fallbackLinkedInUrl = this.extractFirstMatch(
+        block,
+        /<a[^>]*href="([^"]*\/jobs\/view\/\d+[^"]*)"/i,
+      );
+
+      cards.push({
+        externalId,
+        title,
+        company: company || undefined,
+        location: cardLocation || undefined,
+        sourceUrl: this.toAbsoluteUrl(
+          relativeOrAbsoluteUrl || fallbackLinkedInUrl,
+          'https://www.linkedin.com',
+        ),
+      });
+    }
+
+    return cards;
+  }
+
+  private async fetchLinkedInDetails(
+    externalId: string,
+  ): Promise<Pick<ScrapedJobOffer, 'description' | 'sourceUrl' | 'applicationUrl'>> {
+    try {
+      const detailsUrl = `https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/${externalId}`;
+      const detailsHtml = await this.fetchText(detailsUrl);
+      const descriptionHtml =
+        this.extractFirstMatch(
+          detailsHtml,
+          /<div class="show-more-less-html__markup[^"]*">([\s\S]*?)<\/div>/i,
+        ) ||
+        this.extractFirstMatch(
+          detailsHtml,
+          /<section[^>]*class="[^"]*description[^"]*"[^>]*>([\s\S]*?)<\/section>/i,
+        ) ||
+        '';
+
+      const sourceUrl =
+        this.extractFirstMatch(
+          detailsHtml,
+          /<a[^>]*href="([^"]*\/jobs\/view\/[^"]+)"[^>]*>/i,
+        ) || '';
+
+      const applicationUrl =
+        this.extractFirstMatch(
+          detailsHtml,
+          /data-tracking-control-name="public_jobs_apply-link"[^>]*href="([^"]+)"/i,
+        ) ||
+        this.extractFirstMatch(
+          detailsHtml,
+          /<a[^>]*class="[^"]*apply-button[^"]*"[^>]*href="([^"]+)"/i,
+        ) ||
+        this.extractFirstMatch(
+          detailsHtml,
+          /"applyUrl"\s*:\s*"([^"]+)"/i,
+        ) ||
+        '';
+
+      return {
+        description: this.normalizeText(this.stripHtml(descriptionHtml)),
+        sourceUrl: this.toAbsoluteUrl(sourceUrl, 'https://www.linkedin.com') || '',
+        applicationUrl:
+          this.toAbsoluteUrl(applicationUrl, 'https://www.linkedin.com') || '',
+      };
+    } catch {
+      return {
+        description: '',
+        sourceUrl: '',
+        applicationUrl: '',
+      };
+    }
+  }
+
+  private async scrapeHellowork(
+    keywords: string[],
+    location: string | undefined,
+    limit: number,
+  ): Promise<ScrapedJobOffer[]> {
+    const encodedKeywords = encodeURIComponent(keywords.join(' '));
+    const searchUrl = `https://www.hellowork.com/fr-fr/emploi/recherche.html?k=${encodedKeywords}`;
+    const searchHtml = await this.fetchText(searchUrl);
+
+    const cards: Array<Omit<ScrapedJobOffer, 'description'>> = [];
+    const cardRegex = /<input type="hidden" name="title" value="([^"]*)"[\s\S]*?<input type="hidden" name="company" value="([^"]*)"[\s\S]*?<input type="hidden" name="idOffre" value="(\d+)"/gi;
+
+    for (const match of searchHtml.matchAll(cardRegex)) {
+      const title = this.normalizeText(this.decodeHtmlEntities(match[1] || ''));
+      const company = this.normalizeText(this.decodeHtmlEntities(match[2] || ''));
+      const externalId = match[3];
+
+      if (!externalId || !title) {
+        continue;
+      }
+
+      cards.push({
+        externalId,
+        title,
+        company: company || undefined,
+        sourceUrl: `https://www.hellowork.com/fr-fr/emplois/${externalId}.html`,
+      });
+
+      if (cards.length >= limit) {
+        break;
+      }
+    }
+
+    const results: ScrapedJobOffer[] = [];
+    for (const card of cards) {
+      const details = await this.fetchHelloworkDetails(card.sourceUrl || '', location);
+      results.push({
+        ...card,
+        title: details.title || card.title,
+        company: details.company || card.company,
+        location: details.location || location,
+        description:
+          details.description ||
+          `${card.title} chez ${card.company || 'une entreprise'} (${location || 'France'}).`,
+        applicationUrl: details.applicationUrl || card.sourceUrl,
+      });
+    }
+
+    return results;
+  }
+
+  private async fetchHelloworkDetails(
+    detailsUrl: string,
+    locationFallback: string | undefined,
+  ): Promise<
+    Pick<ScrapedJobOffer, 'title' | 'company' | 'location' | 'description' | 'applicationUrl'>
+  > {
+    try {
+      const detailsHtml = await this.fetchText(detailsUrl);
+      const posting = this.extractJsonLdJobPosting(detailsHtml);
+
+      if (!posting) {
+        return {
+          title: '',
+          company: '',
+          location: locationFallback || '',
+          description: '',
+          applicationUrl: detailsUrl,
+        };
+      }
+
+      const title = this.normalizeText(this.toStringValue(posting.title));
+      const description = this.normalizeText(
+        this.stripHtml(this.toStringValue(posting.description)),
+      );
+      const company = this.normalizeText(
+        this.toStringValue(this.getNestedValue(posting, ['hiringOrganization', 'name'])),
+      );
+      const location = this.normalizeText(
+        this.toStringValue(
+          this.getNestedValue(posting, ['jobLocation', 'address', 'addressLocality']),
+        ),
+      );
+      const applicationUrl =
+        this.normalizeText(this.toStringValue(posting.url)) || detailsUrl;
+
+      return {
+        title,
+        company,
+        location: location || locationFallback || '',
+        description,
+        applicationUrl,
+      };
+    } catch {
+      return {
+        title: '',
+        company: '',
+        location: locationFallback || '',
+        description: '',
+        applicationUrl: detailsUrl,
+      };
+    }
+  }
+
+  private async scrapeIndeed(
+    keywords: string[],
+    location: string | undefined,
+    limit: number,
+  ): Promise<ScrapedJobOffer[]> {
+    const encodedKeywords = encodeURIComponent(keywords.join(' '));
+    const encodedLocation = encodeURIComponent(location?.trim() || 'France');
+    const searchUrl = `https://fr.indeed.com/jobs?q=${encodedKeywords}&l=${encodedLocation}`;
+    const searchHtml = await this.fetchText(searchUrl);
+
+    if (
+      /Just a moment/i.test(searchHtml) ||
+      /Enable JavaScript and cookies to continue/i.test(searchHtml) ||
+      /cf_chl_opt/i.test(searchHtml)
+    ) {
+      throw new Error(
+        'Indeed currently blocks automated server requests (anti-bot challenge). Try LinkedIn/Hellowork or import manually.',
+      );
+    }
+
+    const offers: ScrapedJobOffer[] = [];
+    const titleRegex = /<h2[^>]*class="[^"]*jobTitle[^"]*"[^>]*>([\s\S]*?)<\/h2>/gi;
+
+    for (const match of searchHtml.matchAll(titleRegex)) {
+      const title = this.normalizeText(this.stripHtml(match[1] || ''));
+      if (!title) {
+        continue;
+      }
+
+      offers.push({
+        title,
+        company: 'Indeed',
+        location: location || undefined,
+        description: `${title}. Offre récupérée depuis Indeed pour ${keywords.join(', ')}.`,
+        sourceUrl: searchUrl,
+        applicationUrl: searchUrl,
+      });
+
+      if (offers.length >= limit) {
+        break;
+      }
+    }
+
+    return offers;
+  }
+
+  private async fetchText(url: string, timeoutMs = 15000): Promise<string> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8',
+        },
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status} while fetching ${url}`);
+      }
+
+      return response.text();
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  private extractJsonLdJobPosting(html: string): Record<string, unknown> | null {
+    const scriptRegex = /<script type="application\/ld\+json">([\s\S]*?)<\/script>/gi;
+
+    for (const match of html.matchAll(scriptRegex)) {
+      const raw = match[1]?.trim();
+      if (!raw) {
+        continue;
+      }
+
+      const parsed = this.safeJsonParse(raw);
+      const found = this.findJobPosting(parsed);
+
+      if (found) {
+        return found;
+      }
+    }
+
+    return null;
+  }
+
+  private findJobPosting(value: unknown): Record<string, unknown> | null {
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        const found = this.findJobPosting(item);
+        if (found) {
+          return found;
+        }
+      }
+      return null;
+    }
+
+    if (!this.isRecord(value)) {
+      return null;
+    }
+
+    const type = this.toStringValue(value['@type']);
+    if (type.toLowerCase() === 'jobposting') {
+      return value;
+    }
+
+    return null;
+  }
+
+  private safeJsonParse(raw: string): unknown | null {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+
+  private getNestedValue(
+    record: Record<string, unknown>,
+    path: string[],
+  ): unknown {
+    let current: unknown = record;
+
+    for (const key of path) {
+      if (!this.isRecord(current)) {
+        return undefined;
+      }
+
+      current = current[key];
+    }
+
+    return current;
+  }
+
+  private buildExternalKey(platform?: string, externalId?: string): string | null {
+    if (!platform || !externalId) {
+      return null;
+    }
+
+    return `${platform.toLowerCase()}:${externalId.trim()}`;
+  }
+
+  private normalizeSourceUrl(url?: string): string | null {
+    if (!url) {
+      return null;
+    }
+
+    return url.trim().replace(/[?#].*$/, '').replace(/\/$/, '').toLowerCase();
+  }
+
+  private buildFingerprint(
+    title: string,
+    company?: string,
+    location?: string,
+  ): string {
+    const normalizedTitle = this.normalizeForFingerprint(title);
+    const normalizedCompany = this.normalizeForFingerprint(company || '');
+    const normalizedLocation = this.normalizeForFingerprint(location || '');
+    return `${normalizedTitle}::${normalizedCompany}::${normalizedLocation}`;
+  }
+
+  private normalizeForFingerprint(value: string): string {
+    return this.normalizeText(this.decodeHtmlEntities(value))
+      .toLowerCase()
+      .replace(/[^a-z0-9àâçéèêëîïôùûüÿñæœ\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  private toAbsoluteUrl(url: string | undefined, origin: string): string | undefined {
+    if (!url) {
+      return undefined;
+    }
+
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return this.decodeHtmlEntities(url);
+    }
+
+    return `${origin}${this.decodeHtmlEntities(url)}`;
+  }
+
+  private stripHtml(value: string): string {
+    return value
+      .replace(/<br\s*\/?\s*>/gi, ' ')
+      .replace(/<\/p>/gi, ' ')
+      .replace(/<[^>]+>/g, ' ');
+  }
+
+  private decodeHtmlEntities(value: string): string {
+    const namedReplacements: Record<string, string> = {
+      '&amp;': '&',
+      '&quot;': '"',
+      '&#39;': "'",
+      '&lt;': '<',
+      '&gt;': '>',
+      '&nbsp;': ' ',
+      '&apos;': "'",
+      '&eacute;': 'é',
+      '&Eacute;': 'É',
+      '&egrave;': 'è',
+      '&agrave;': 'à',
+      '&ccedil;': 'ç',
+    };
+
+    let output = value;
+    for (const [entity, replacement] of Object.entries(namedReplacements)) {
+      output = output.split(entity).join(replacement);
+    }
+
+    output = output.replace(/&#(x?[0-9a-fA-F]+);/g, (_, code: string) => {
+      const parsed = code.startsWith('x') || code.startsWith('X')
+        ? Number.parseInt(code.slice(1), 16)
+        : Number.parseInt(code, 10);
+
+      if (Number.isNaN(parsed)) {
+        return _;
+      }
+
+      return String.fromCodePoint(parsed);
+    });
+
+    return output;
+  }
+
+  private normalizeText(value: string): string {
+    return this.decodeHtmlEntities(value)
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  private extractFirstMatch(source: string, regex: RegExp): string | undefined {
+    const match = source.match(regex);
+    if (!match || !match[1]) {
+      return undefined;
+    }
+
+    return this.normalizeText(match[1]);
+  }
+
+  private toStringValue(value: unknown): string {
+    return typeof value === 'string' ? value : '';
+  }
+
+  private isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+  }
+
+  private getErrorMessage(error: unknown): string {
+    if (error instanceof Error && error.message) {
+      return error.message;
+    }
+
+    return 'Failed to import job offers from selected platform.';
   }
 }

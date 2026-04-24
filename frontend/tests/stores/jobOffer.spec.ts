@@ -81,4 +81,34 @@ describe('Job Offer Store', () => {
 
     expect(store.jobOffers).toHaveLength(1);
   });
+
+  it('should import job offers', async () => {
+    const importedOffer = {
+      id: 'import-1',
+      title: 'Node.js Developer',
+      description: 'Build APIs',
+      requiredSkills: ['Node.js', 'Docker'],
+    };
+
+    mockApi.post.mockResolvedValue({
+      platform: 'linkedin',
+      imported: 1,
+      skipped: 0,
+      offers: [importedOffer],
+      warnings: [],
+    });
+
+    const { useJobOfferStore } = await import('~/stores/jobOffer');
+    const store = useJobOfferStore();
+
+    const result = await store.importJobOffers({
+      platform: 'linkedin',
+      keywords: ['nodejs', 'docker'],
+      location: 'Paris',
+      limit: 10,
+    });
+
+    expect(result.imported).toBe(1);
+    expect(store.jobOffers[0].id).toBe('import-1');
+  });
 });

@@ -29,6 +29,18 @@ export class JobOffer {
   @Column({ nullable: true })
   location: string;
 
+  @Column({ nullable: true })
+  platform: string;
+
+  @Column({ type: 'text', nullable: true })
+  sourceUrl: string;
+
+  @Column({ type: 'text', nullable: true })
+  applicationUrl: string;
+
+  @Column({ nullable: true })
+  externalId: string;
+
   @Column({ type: 'jsonb', default: [] })
   keywords: string[];
 
