@@ -121,5 +121,25 @@ export const useJobOfferStore = defineStore('jobOffer', {
         this.loading = false;
       }
     },
+    async importJobOfferByUrl(data: { url: string }) {
+      this.loading = true;
+      this.error = null;
+      try {
+        const api = useApi();
+        const job = await api.post<JobOffer>('/job-offer/import/url', data);
+
+        const existingIds = new Set(this.jobOffers.map((offer) => offer.id));
+        if (!existingIds.has(job.id)) {
+          this.jobOffers.unshift(job);
+        }
+
+        return job;
+      } catch (e: unknown) {
+        this.error = e instanceof Error ? e.message : 'Failed to import job offer by URL';
+        throw e;
+      } finally {
+        this.loading = false;
+      }
+    },
   },
 });

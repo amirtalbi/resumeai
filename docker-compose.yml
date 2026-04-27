@@ -1,15 +1,28 @@
 services:
+  traefik:
+    image: traefik:v3.1
+    command:
+      - --configFile=/etc/traefik/traefik.yml
+    ports:
+      - "80:80"
+    volumes:
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/dynamic.yml:/etc/traefik/dynamic.yml:ro
+    networks:
+      - app-network
+    restart: unless-stopped
+
   # Frontend - Nuxt 3
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
     environment:
-      - NUXT_PUBLIC_API_BASE=http://localhost:3001/api
+      - NUXT_PUBLIC_API_BASE=/api
+      - NUXT_APP_BASE_URL=/cv-builder/
     depends_on:
       - backend
+      - traefik
     networks:
       - app-network
     restart: unless-stopped
@@ -19,8 +32,6 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    ports:
-      - "3001:3001"
     environment:
       - DATABASE_HOST=postgres
       - DATABASE_PORT=5432
@@ -37,7 +48,7 @@ services:
       - OLLAMA_MODEL=mistral
       - OLLAMA_TIMEOUT_MS=300000
       - OLLAMA_NUM_PREDICT=1024
-      - FRONTEND_URL=http://localhost:3000
+      - FRONTEND_URL=http://localhost,http://localhost:3000,http://91.165.223.157,http://91.165.223.157:3000
       - PORT=3001
       - NODE_ENV=development
     depends_on:
@@ -46,6 +57,8 @@ services:
       redis:
         condition: service_healthy
       ollama:
+        condition: service_started
+      traefik:
         condition: service_started
     networks:
       - app-network
@@ -58,8 +71,6 @@ services:
       - POSTGRES_USER=resumeai
       - POSTGRES_PASSWORD=resumeai_secret
       - POSTGRES_DB=resumeai
-    ports:
-      - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -74,8 +85,6 @@ services:
   # Redis
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
     volumes:
       - redis-data:/data
     healthcheck:
@@ -91,8 +100,6 @@ services:
   ollama:
     image: ollama/ollama:latest
     gpus: all
-    ports:
-      - "11434:11434"
     volumes:
       - ollama-data:/root/.ollama
     networks:
@@ -102,20 +109,6 @@ services:
       resources:
         limits:
           memory: 8G
-
-  # Nginx Reverse Proxy
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "80:80"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-    depends_on:
-      - frontend
-      - backend
-    networks:
-      - app-network
-    restart: unless-stopped
 
 volumes:
   postgres-data:

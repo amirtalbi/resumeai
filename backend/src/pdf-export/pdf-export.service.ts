@@ -5,6 +5,7 @@ import { CvContent } from '../cv/entities/cv.entity';
 @Injectable()
 export class PdfExportService {
   private readonly logger = new Logger(PdfExportService.name);
+  private readonly sectionSpacingMultiplier = 0.95;
 
   async generateAtsFriendlyPdf(cvContent: CvContent): Promise<Buffer> {
     return new Promise((resolve, reject) => {
@@ -26,13 +27,24 @@ export class PdfExportService {
         // Header - Name
         doc
           .font('Helvetica-Bold')
-          .fontSize(26)
+          .fontSize(25)
           .text(
             `${cvContent.personalInfo.firstName} ${cvContent.personalInfo.lastName}`,
             { align: 'center' },
           );
 
-        doc.moveDown(0.65);
+        if (cvContent.personalInfo.jobTitle) {
+          doc.moveDown(this.scaleSectionGap(0.15));
+          doc
+            .font('Helvetica')
+            .fontSize(12)
+            .fillColor('#444444')
+            .text(cvContent.personalInfo.jobTitle, { align: 'center' });
+          doc.fillColor('#000000');
+          doc.moveDown(this.scaleSectionGap(0.5));
+        } else {
+          doc.moveDown(this.scaleSectionGap(0.65));
+        }
 
         // Contact info
         const contactParts: string[] = [];
@@ -50,12 +62,12 @@ export class PdfExportService {
           .fontSize(11)
           .text(contactParts.join(' | '), { align: 'center' });
 
-        doc.moveDown(1);
+        doc.moveDown(this.scaleSectionGap(1));
         this.drawLine(doc);
 
         // Summary
         if (cvContent.summary) {
-          doc.moveDown(1.05);
+          doc.moveDown(this.scaleSectionGap(1.05));
           this.addSectionTitle(doc, 'PROFIL PROFESSIONNEL');
           doc.font('Helvetica').fontSize(11).text(cvContent.summary, {
             align: 'justify',
@@ -65,7 +77,7 @@ export class PdfExportService {
 
         // Experience
         if (cvContent.experiences?.length > 0) {
-          doc.moveDown(1.05);
+          doc.moveDown(this.scaleSectionGap(1.05));
           this.addSectionTitle(doc, 'EXPÉRIENCE PROFESSIONNELLE');
 
           for (const exp of cvContent.experiences) {
@@ -114,7 +126,7 @@ export class PdfExportService {
 
         // Education
         if (cvContent.education?.length > 0) {
-          doc.moveDown(1.05);
+          doc.moveDown(this.scaleSectionGap(1.05));
           this.addSectionTitle(doc, 'FORMATION');
 
           for (const edu of cvContent.education) {
@@ -152,7 +164,7 @@ export class PdfExportService {
 
         // Skills
         if (cvContent.skills?.length > 0) {
-          doc.moveDown(1.05);
+          doc.moveDown(this.scaleSectionGap(1.05));
           this.addSectionTitle(doc, 'COMPÉTENCES');
 
           for (const skillCategory of cvContent.skills) {
@@ -170,7 +182,7 @@ export class PdfExportService {
 
         // Languages
         if (cvContent.languages?.length) {
-          doc.moveDown(1.05);
+          doc.moveDown(this.scaleSectionGap(1.05));
           this.addSectionTitle(doc, 'LANGUES');
 
           for (const lang of cvContent.languages) {
@@ -183,7 +195,7 @@ export class PdfExportService {
 
         // Certifications
         if (cvContent.certifications?.length) {
-          doc.moveDown(1.05);
+          doc.moveDown(this.scaleSectionGap(1.05));
           this.addSectionTitle(doc, 'CERTIFICATIONS');
 
           for (const cert of cvContent.certifications) {
@@ -206,7 +218,7 @@ export class PdfExportService {
 
   private addSectionTitle(doc: PDFKit.PDFDocument, title: string) {
     doc.font('Helvetica-Bold').fontSize(15).text(title);
-    doc.moveDown(0.35);
+    doc.moveDown(this.scaleSectionGap(0.35));
     this.drawLine(doc);
   }
 
@@ -220,6 +232,10 @@ export class PdfExportService {
       .strokeColor('#333333')
       .lineWidth(0.5)
       .stroke();
-    doc.moveDown(0.55);
+    doc.moveDown(this.scaleSectionGap(0.55));
+  }
+
+  private scaleSectionGap(value: number): number {
+    return value * this.sectionSpacingMultiplier;
   }
 }

@@ -5,7 +5,7 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     public: {
-      apiBase: process.env.NUXT_PUBLIC_API_BASE || 'http://localhost:3001/api',
+      apiBase: process.env.NUXT_PUBLIC_API_BASE || '/api',
     },
   },
 
@@ -14,6 +14,7 @@ export default defineNuxtConfig({
   },
 
   app: {
+    baseURL: process.env.NUXT_APP_BASE_URL || '/',
     head: {
       title: 'ResumeAI - CV Builder',
       meta: [

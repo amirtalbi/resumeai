@@ -19,6 +19,7 @@ import {
   UpdateJobOfferDto,
   ImportJobOffersDto,
 } from './dto/job-offer.dto';
+import { ImportJobOfferByUrlDto } from './dto/job-offer.dto';
 
 @ApiTags('Job Offers')
 @Controller('job-offer')
@@ -55,6 +56,25 @@ export class JobOfferController {
     }
 
     return this.jobOfferService.importFromPlatform(userId, dto);
+  }
+
+  @Post('import/url')
+  @ApiOperation({ summary: "Import a single job offer by URL (LinkedIn/Hellowork/Indeed)" })
+  async importByUrl(
+    @CurrentUser('id') userId: string,
+    @CurrentUser('email') userEmail: string,
+    @Body() dto: ImportJobOfferByUrlDto,
+  ) {
+    if (
+      userEmail?.toLowerCase() !==
+      JobOfferController.IMPORT_ALLOWED_EMAIL.toLowerCase()
+    ) {
+      throw new ForbiddenException(
+        'Only amirotalbi94@gmail.com can manage automatic job imports.',
+      );
+    }
+
+    return this.jobOfferService.importFromUrl(userId, dto.url);
   }
 
   @Get()

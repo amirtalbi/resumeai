@@ -217,6 +217,153 @@ export class JobOfferService {
     };
   }
 
+  async importFromUrl(userId: string, url: string): Promise<JobOffer> {
+    const trimmed = (url || '').trim();
+    if (!trimmed) {
+      throw new BadRequestException('A valid URL is required');
+    }
+
+    let platform: JobOfferPlatform | undefined;
+    if (/linkedin\.com/i.test(trimmed)) {
+      platform = JobOfferPlatform.LINKEDIN;
+    } else if (/hellowork\.com/i.test(trimmed)) {
+      platform = JobOfferPlatform.HELLOWORK;
+    } else if (/indeed\.com/i.test(trimmed) || /indeed\.fr/i.test(trimmed)) {
+      platform = JobOfferPlatform.INDEED;
+    } else {
+      throw new BadRequestException('Unsupported job platform in URL');
+    }
+
+    let scraped: ScrapedJobOffer | null = null;
+
+    try {
+      const pageHtml = await this.fetchText(trimmed, 20000);
+
+      const posting = this.extractJsonLdJobPosting(pageHtml);
+      if (posting) {
+        const title = this.normalizeText(this.toStringValue(posting.title)) || '';
+        const description = this.normalizeText(
+          this.stripHtml(this.toStringValue(posting.description)),
+        );
+        const company = this.normalizeText(
+          this.toStringValue(this.getNestedValue(posting, ['hiringOrganization', 'name'])),
+        ) || undefined;
+        const location = this.normalizeText(
+          this.toStringValue(
+            this.getNestedValue(posting, ['jobLocation', 'address', 'addressLocality']),
+          ),
+        ) || undefined;
+        const applicationUrl =
+          this.normalizeText(this.toStringValue(posting.url)) || trimmed;
+
+        scraped = {
+          title,
+          description: description || title,
+          company,
+          location,
+          sourceUrl: trimmed,
+          applicationUrl,
+        };
+      } else if (platform === JobOfferPlatform.LINKEDIN) {
+        const externalIdMatch = trimmed.match(/(?:jobs\/view\/(\d+)|jobPosting\/(\d+)|urn:li:jobPosting:(\d+))/i);
+        const externalId = externalIdMatch && externalIdMatch.slice(1).find(Boolean);
+
+        if (externalId) {
+          const details = await this.fetchLinkedInDetails(externalId as string);
+          const metaTitle = this.extractFirstMatch(pageHtml, /<meta property="og:title" content="([^"]+)"/i)
+            || this.extractFirstMatch(pageHtml, /<title>([\s\S]*?)<\/title>/i) || '';
+
+          scraped = {
+            externalId: externalId as string,
+            title: this.normalizeText(metaTitle) || details.description.slice(0, 200) || '',
+            description: details.description || metaTitle || '',
+            company: undefined,
+            location: undefined,
+            sourceUrl: details.sourceUrl || trimmed,
+            applicationUrl: details.applicationUrl || trimmed,
+          };
+        }
+      } else if (platform === JobOfferPlatform.HELLOWORK) {
+        const details = await this.fetchHelloworkDetails(trimmed, undefined);
+        scraped = {
+          title: details.title || '',
+          description: details.description || details.title || '',
+          company: details.company || undefined,
+          location: details.location || undefined,
+          sourceUrl: trimmed,
+          applicationUrl: details.applicationUrl || trimmed,
+        };
+      } else if (platform === JobOfferPlatform.INDEED) {
+        const title =
+          this.extractFirstMatch(pageHtml, /<h1[^>]*>([\s\S]*?)<\/h1>/i) ||
+          this.extractFirstMatch(pageHtml, /<title>([\s\S]*?)<\/title>/i) ||
+          '';
+
+        scraped = {
+          title: this.normalizeText(title) || 'Offre',
+          description: '',
+          company: undefined,
+          location: undefined,
+          sourceUrl: trimmed,
+          applicationUrl: trimmed,
+        };
+      }
+    } catch (err) {
+      throw new BadRequestException('Failed to fetch or parse the provided URL');
+    }
+
+    if (!scraped || !scraped.title) {
+      throw new BadRequestException('Could not extract job details from the provided URL');
+    }
+
+    const existingOffers = await this.jobOfferRepository.find({ where: { userId } });
+    const existingSourceUrls = new Set(
+      existingOffers
+        .map((offer) => this.normalizeSourceUrl(offer.sourceUrl))
+        .filter((v): v is string => Boolean(v)),
+    );
+    const existingExternalKeys = new Set(
+      existingOffers
+        .map((offer) => this.buildExternalKey(offer.platform, offer.externalId))
+        .filter((v): v is string => Boolean(v)),
+    );
+    const existingFingerprints = new Set(
+      existingOffers.map((offer) => this.buildFingerprint(offer.title, offer.company, offer.location)),
+    );
+
+    const sourceKey = this.normalizeSourceUrl(scraped.sourceUrl);
+    const externalKey = this.buildExternalKey(platform, scraped.externalId);
+    const fingerprint = this.buildFingerprint(scraped.title, scraped.company, scraped.location);
+
+    if (
+      (sourceKey && existingSourceUrls.has(sourceKey)) ||
+      (externalKey && existingExternalKeys.has(externalKey)) ||
+      existingFingerprints.has(fingerprint)
+    ) {
+      throw new BadRequestException('This job offer appears to already exist in your collection');
+    }
+
+    const keywordsFromDescription = this.extractKeywords(scraped.description || scraped.title);
+    const requiredSkills = this.extractSkills(scraped.description || scraped.title);
+
+    const created = this.jobOfferRepository.create({
+      userId,
+      title: scraped.title.trim(),
+      description: (scraped.description || scraped.title).trim(),
+      company: scraped.company?.trim() || undefined,
+      location: scraped.location?.trim() || undefined,
+      platform,
+      sourceUrl: scraped.sourceUrl?.trim() || undefined,
+      applicationUrl: scraped.applicationUrl?.trim() || scraped.sourceUrl?.trim() || undefined,
+      externalId: scraped.externalId?.trim() || undefined,
+      keywords: keywordsFromDescription,
+      requiredSkills,
+    });
+
+    const saved = await this.jobOfferRepository.save(created);
+    return saved;
+  }
+
   extractKeywords(text: string): string[] {
     const stopWords = new Set([
       'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',

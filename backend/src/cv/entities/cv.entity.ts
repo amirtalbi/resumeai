@@ -43,6 +43,7 @@ export interface CvContent {
   personalInfo: {
     firstName: string;
     lastName: string;
+    jobTitle?: string;
     email: string;
     phone?: string;
     address?: string;

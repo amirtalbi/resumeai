@@ -2,9 +2,12 @@
   <div class="cv-preview bg-white text-black p-8 text-sm leading-relaxed">
     <!-- Header -->
     <div class="text-center mb-4">
-      <h1 class="text-2xl font-bold">
+      <h1 class="text-[1.35rem] font-bold">
         {{ content.personalInfo.firstName }} {{ content.personalInfo.lastName }}
       </h1>
+      <p v-if="content.personalInfo.jobTitle" class="text-sm text-gray-700 mt-0.5">
+        {{ content.personalInfo.jobTitle }}
+      </p>
       <p class="text-xs text-gray-600 mt-1">
         <template v-for="(item, i) in contactItems" :key="i">
           {{ item }}<span v-if="i < contactItems.length - 1"> | </span>
@@ -15,25 +18,27 @@
     <hr class="border-gray-300 mb-3" />
 
     <!-- Summary -->
-    <div v-if="content.summary" class="mb-4">
+    <div v-if="content.summary" class="section-gap">
       <h2 class="text-sm font-bold uppercase tracking-wider mb-1">Profil Professionnel</h2>
       <hr class="border-gray-300 mb-2" />
       <p class="text-xs">{{ content.summary }}</p>
     </div>
 
     <!-- Experience -->
-    <div v-if="content.experiences?.length" class="mb-4">
+    <div v-if="content.experiences?.length" class="section-gap">
       <h2 class="text-sm font-bold uppercase tracking-wider mb-1">Expérience Professionnelle</h2>
       <hr class="border-gray-300 mb-2" />
       <div v-for="(exp, i) in content.experiences" :key="i" class="mb-3">
         <div class="flex justify-between">
           <strong class="text-xs">{{ exp.position }}</strong>
-          <span class="text-xs text-gray-500">{{ exp.startDate }} - {{ exp.current ? 'Présent' : exp.endDate }}</span>
+          <span class="text-xs text-gray-500">
+            {{ formatMonthYearFr(exp.startDate) }} - {{ exp.current ? 'Présent' : formatMonthYearFr(exp.endDate) }}
+          </span>
         </div>
         <p class="text-xs text-gray-600 italic">{{ exp.company }}</p>
         <p class="text-xs mt-1">{{ exp.description }}</p>
         <p v-if="exp.tags?.length" class="text-xs mt-1 text-gray-700">
-          <strong>Techno :</strong> {{ exp.tags.join(', ') }}
+          <strong>Stack :</strong> {{ exp.tags.join(', ') }}
         </p>
         <ul v-if="exp.achievements?.length" class="list-disc list-inside text-xs mt-1">
           <li v-for="(a, j) in exp.achievements" :key="j">{{ a }}</li>
@@ -42,7 +47,7 @@
     </div>
 
     <!-- Education -->
-    <div v-if="content.education?.length" class="mb-4">
+    <div v-if="content.education?.length" class="section-gap">
       <h2 class="text-sm font-bold uppercase tracking-wider mb-1">Formation</h2>
       <hr class="border-gray-300 mb-2" />
       <div v-for="(edu, i) in content.education" :key="i" class="mb-2">
@@ -55,7 +60,7 @@
     </div>
 
     <!-- Skills -->
-    <div v-if="content.skills?.length" class="mb-4">
+    <div v-if="content.skills?.length" class="section-gap">
       <h2 class="text-sm font-bold uppercase tracking-wider mb-1">Compétences</h2>
       <hr class="border-gray-300 mb-2" />
       <div v-for="(skill, i) in content.skills" :key="i" class="text-xs mb-1">
@@ -64,7 +69,7 @@
     </div>
 
     <!-- Languages -->
-    <div v-if="content.languages?.length" class="mb-4">
+    <div v-if="content.languages?.length" class="section-gap">
       <h2 class="text-sm font-bold uppercase tracking-wider mb-1">Langues</h2>
       <hr class="border-gray-300 mb-2" />
       <p class="text-xs">
@@ -122,4 +127,24 @@ const isEmpty = computed(() => {
     !props.content.skills?.length
   );
 });
+
+const formatMonthYearFr = (value?: string) => {
+  if (!value) {
+    return '';
+  }
+
+  const match = value.match(/^(\d{4})-(\d{2})$/);
+  if (!match) {
+    return value;
+  }
+
+  const [, year, month] = match;
+  return `${month}/${year}`;
+};
 </script>
+
+<style scoped>
+.section-gap {
+  margin-bottom: 0.95rem;
+}
+</style>

@@ -18,6 +18,10 @@ class PersonalInfoDto {
   @IsString()
   lastName: string;
 
+  @IsOptional()
+  @IsString()
+  jobTitle?: string;
+
   @IsEmail()
   email: string;
 

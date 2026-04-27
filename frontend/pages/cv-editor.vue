@@ -42,6 +42,12 @@
             <UFormGroup label="Nom">
               <UInput v-model="cvContent.personalInfo.lastName" />
             </UFormGroup>
+            <UFormGroup label="Poste" class="col-span-2">
+              <UInput
+                v-model="cvContent.personalInfo.jobTitle"
+                placeholder="Ex: Développeur Full Stack"
+              />
+            </UFormGroup>
             <UFormGroup label="Email">
               <UInput v-model="cvContent.personalInfo.email" type="email" />
             </UFormGroup>
@@ -108,7 +114,7 @@
               <UFormGroup label="Description" class="mt-3">
                 <UTextarea v-model="exp.description" :rows="3" />
               </UFormGroup>
-              <UFormGroup label="Tags (séparés par des virgules)" class="mt-3">
+              <UFormGroup label="Stack (séparés par des virgules)" class="mt-3">
                 <UInput
                   :model-value="(exp.tags || []).join(', ')"
                   @update:model-value="(val: string) => exp.tags = val.split(',').map((s: string) => s.trim()).filter(Boolean)"
@@ -160,7 +166,7 @@
                   </div>
                 </UFormGroup>
               </div>
-              <UFormGroup label="Tags (séparés par des virgules)" class="mt-3">
+              <UFormGroup label="Stack (séparés par des virgules)" class="mt-3">
                 <UInput
                   :model-value="(edu.tags || []).join(', ')"
                   @update:model-value="(val: string) => edu.tags = val.split(',').map((s: string) => s.trim()).filter(Boolean)"
@@ -280,6 +286,7 @@ const cvContent = reactive<CvContent>({
   personalInfo: {
     firstName: '',
     lastName: '',
+    jobTitle: '',
     email: '',
     phone: '',
     address: '',

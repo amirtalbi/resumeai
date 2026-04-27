@@ -43,6 +43,13 @@
               />
             </UFormGroup>
 
+            <UFormGroup label="Coller l'URL d'une offre (LinkedIn / Hellowork / Indeed)">
+              <div class="flex gap-2">
+                <UInput v-model="urlToImport" placeholder="https://..." />
+                <UButton :loading="importingOffers" @click="importByUrl">Importer</UButton>
+              </div>
+            </UFormGroup>
+
             <UFormGroup label="Nombre maximum d'offres">
               <UInput
                 v-model.number="importForm.limit"
@@ -474,6 +481,8 @@ const importForm = reactive({
   limit: 10,
 });
 
+const urlToImport = ref('');
+
 const platformOptions = [
   { label: 'LinkedIn', value: 'linkedin' },
   { label: 'Indeed', value: 'indeed' },
@@ -597,6 +606,51 @@ const importOffers = async () => {
       color: 'red',
       title: 'Erreur pendant l’import',
       description: error instanceof Error ? error.message : 'Échec de l’import automatique',
+    };
+  } finally {
+    importingOffers.value = false;
+  }
+};
+
+const importByUrl = async () => {
+  if (!canManageAutoImport.value) {
+    importFeedback.value = {
+      color: 'red',
+      title: 'Accès refusé',
+      description: 'Vous n\'êtes pas autorisé à gérer l\'import automatique.',
+    };
+    return;
+  }
+
+  if (!urlToImport.value || !/^https?:\/\//i.test(urlToImport.value.trim())) {
+    importFeedback.value = {
+      color: 'red',
+      title: 'URL invalide',
+      description: 'Veuillez coller une URL valide.',
+    };
+    return;
+  }
+
+  importingOffers.value = true;
+  importFeedback.value = null;
+
+  try {
+    const job = await jobOfferStore.importJobOfferByUrl({ url: urlToImport.value.trim() });
+
+    if (job) {
+      selectedJobId.value = job.id;
+      importFeedback.value = {
+        color: 'green',
+        title: 'Offre importée',
+        description: 'L\'offre a été ajoutée et est prête pour l\'optimisation.',
+      };
+      urlToImport.value = '';
+    }
+  } catch (error) {
+    importFeedback.value = {
+      color: 'red',
+      title: 'Erreur pendant l\'import',
+      description: error instanceof Error ? error.message : 'Échec de l\'import depuis l\'URL',
     };
   } finally {
     importingOffers.value = false;

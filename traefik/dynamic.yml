@@ -1,0 +1,39 @@
+http:
+  routers:
+    root-redirect:
+      entryPoints:
+        - web
+      rule: "Path(`/`)"
+      middlewares:
+        - root-to-cv-builder
+      service: frontend
+
+    frontend:
+      entryPoints:
+        - web
+      rule: "PathPrefix(`/cv-builder`)"
+      service: frontend
+
+    backend:
+      entryPoints:
+        - web
+      rule: "PathPrefix(`/api`)"
+      service: backend
+
+  middlewares:
+    root-to-cv-builder:
+      redirectRegex:
+        regex: "^(https?)://([^/]+)/?$"
+        replacement: "${1}://${2}/cv-builder/"
+        permanent: true
+
+  services:
+    frontend:
+      loadBalancer:
+        servers:
+          - url: "http://frontend:3000"
+
+    backend:
+      loadBalancer:
+        servers:
+          - url: "http://backend:3001"

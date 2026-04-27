@@ -111,3 +111,11 @@ export class ImportJobOffersDto {
   @Max(25)
   limit?: number;
 }
+
+export class ImportJobOfferByUrlDto {
+  @ApiProperty({ example: 'https://www.linkedin.com/jobs/view/12345' })
+  @IsString()
+  @IsUrl({ require_protocol: true })
+  @MaxLength(2000)
+  url: string;
+}

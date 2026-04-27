@@ -7,6 +7,7 @@ describe('CvPreview', () => {
     personalInfo: {
       firstName: 'John',
       lastName: 'Doe',
+      jobTitle: 'Développeur Full Stack',
       email: 'john@example.com',
       phone: '+33 6 12 34 56 78',
       address: 'Paris',
@@ -51,6 +52,7 @@ describe('CvPreview', () => {
     const wrapper = mount(CvPreview, { props: { content: fullContent } });
     expect(wrapper.text()).toContain('John');
     expect(wrapper.text()).toContain('Doe');
+    expect(wrapper.text()).toContain('Développeur Full Stack');
     expect(wrapper.text()).toContain('john@example.com');
   });
 
@@ -63,6 +65,7 @@ describe('CvPreview', () => {
     const wrapper = mount(CvPreview, { props: { content: fullContent } });
     expect(wrapper.text()).toContain('Senior Developer');
     expect(wrapper.text()).toContain('Tech Corp');
+    expect(wrapper.text()).toContain('01/2020 - 12/2023');
     expect(wrapper.text()).toContain('Built web applications.');
     expect(wrapper.text()).toContain('Node.js');
     expect(wrapper.text()).toContain('Docker');
