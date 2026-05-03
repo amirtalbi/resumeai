@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as PDFDocument from 'pdfkit';
+import * as QRCode from 'qrcode';
 import { CvContent } from '../cv/entities/cv.entity';
 
 @Injectable()
@@ -8,6 +9,9 @@ export class PdfExportService {
   private readonly sectionSpacingMultiplier = 0.95;
 
   async generateAtsFriendlyPdf(cvContent: CvContent): Promise<Buffer> {
+    const labels = this.getLabels(cvContent.language);
+    const qrCodeBuffer = await this.buildQrCodeBuffer(cvContent);
+
     return new Promise((resolve, reject) => {
       try {
         const doc = new PDFDocument({
@@ -32,6 +36,26 @@ export class PdfExportService {
             `${cvContent.personalInfo.firstName} ${cvContent.personalInfo.lastName}`,
             { align: 'center' },
           );
+
+        if (qrCodeBuffer) {
+          const qrSize = 90;
+          const qrX = doc.page.width - doc.page.margins.right - qrSize;
+          const qrY = doc.page.margins.top * 0.5;
+          const originalY = doc.y;
+          doc.image(qrCodeBuffer, qrX, qrY, { width: qrSize, height: qrSize });
+
+          const label = cvContent.qrCode?.label?.trim();
+          if (label) {
+            doc
+              .font('Helvetica')
+              .fontSize(9)
+              .fillColor('#666666')
+              .text(label, qrX, qrY + qrSize + 3, { width: qrSize, align: 'center' });
+            doc.fillColor('#000000');
+          }
+
+          doc.y = originalY;
+        }
 
         if (cvContent.personalInfo.jobTitle) {
           doc.moveDown(this.scaleSectionGap(0.15));
@@ -68,7 +92,7 @@ export class PdfExportService {
         // Summary
         if (cvContent.summary) {
           doc.moveDown(this.scaleSectionGap(1.05));
-          this.addSectionTitle(doc, 'PROFIL PROFESSIONNEL');
+          this.addSectionTitle(doc, labels.summary);
           doc.font('Helvetica').fontSize(11).text(cvContent.summary, {
             align: 'justify',
             lineGap: 3.5,
@@ -78,7 +102,7 @@ export class PdfExportService {
         // Experience
         if (cvContent.experiences?.length > 0) {
           doc.moveDown(this.scaleSectionGap(1.05));
-          this.addSectionTitle(doc, 'EXPÉRIENCE PROFESSIONNELLE');
+          this.addSectionTitle(doc, labels.experience);
 
           for (const exp of cvContent.experiences) {
             doc.moveDown(0.7);
@@ -92,7 +116,14 @@ export class PdfExportService {
               .fontSize(11)
               .fillColor('#666666')
               .text(
-                `${exp.company} | ${exp.startDate} - ${exp.current ? 'Présent' : exp.endDate || ''}`,
+                this.formatLineWithDateRange(
+                  exp.company,
+                  exp.startDate,
+                  exp.endDate,
+                  exp.current,
+                  labels.present,
+                  cvContent.language,
+                ),
               );
             doc.fillColor('#000000');
 
@@ -118,7 +149,7 @@ export class PdfExportService {
                 .font('Helvetica-Oblique')
                 .fontSize(10)
                 .fillColor('#444444')
-                .text(`Tags: ${exp.tags.join(', ')}`);
+                .text(`${labels.stack}: ${exp.tags.join(', ')}`);
               doc.fillColor('#000000');
             }
           }
@@ -127,7 +158,7 @@ export class PdfExportService {
         // Education
         if (cvContent.education?.length > 0) {
           doc.moveDown(this.scaleSectionGap(1.05));
-          this.addSectionTitle(doc, 'FORMATION');
+          this.addSectionTitle(doc, labels.education);
 
           for (const edu of cvContent.education) {
             doc.moveDown(0.7);
@@ -140,7 +171,14 @@ export class PdfExportService {
               .font('Helvetica')
               .fontSize(11)
               .text(
-                `${edu.institution} | ${edu.startDate} - ${edu.endDate || ''}`,
+                this.formatLineWithDateRange(
+                  edu.institution,
+                  edu.startDate,
+                  edu.endDate,
+                  false,
+                  labels.present,
+                  cvContent.language,
+                ),
               );
 
             if (edu.description) {
@@ -156,7 +194,7 @@ export class PdfExportService {
                 .font('Helvetica-Oblique')
                 .fontSize(10)
                 .fillColor('#444444')
-                .text(`Tags: ${edu.tags.join(', ')}`);
+                .text(`${labels.modules}: ${edu.tags.join(', ')}`);
               doc.fillColor('#000000');
             }
           }
@@ -165,7 +203,7 @@ export class PdfExportService {
         // Skills
         if (cvContent.skills?.length > 0) {
           doc.moveDown(this.scaleSectionGap(1.05));
-          this.addSectionTitle(doc, 'COMPÉTENCES');
+          this.addSectionTitle(doc, labels.skills);
 
           for (const skillCategory of cvContent.skills) {
             doc.moveDown(0.45);
@@ -183,7 +221,7 @@ export class PdfExportService {
         // Languages
         if (cvContent.languages?.length) {
           doc.moveDown(this.scaleSectionGap(1.05));
-          this.addSectionTitle(doc, 'LANGUES');
+          this.addSectionTitle(doc, labels.languages);
 
           for (const lang of cvContent.languages) {
             doc
@@ -196,7 +234,7 @@ export class PdfExportService {
         // Certifications
         if (cvContent.certifications?.length) {
           doc.moveDown(this.scaleSectionGap(1.05));
-          this.addSectionTitle(doc, 'CERTIFICATIONS');
+          this.addSectionTitle(doc, labels.certifications);
 
           for (const cert of cvContent.certifications) {
             doc
@@ -237,5 +275,107 @@ export class PdfExportService {
 
   private scaleSectionGap(value: number): number {
     return value * this.sectionSpacingMultiplier;
+  }
+
+  private getLabels(language?: string) {
+    const locale = (language || 'fr').toLowerCase();
+    const translations = {
+      fr: {
+        summary: 'PROFIL PROFESSIONNEL',
+        experience: 'EXPÉRIENCE PROFESSIONNELLE',
+        education: 'FORMATION',
+        skills: 'COMPÉTENCES',
+        languages: 'LANGUES',
+        certifications: 'CERTIFICATIONS',
+        present: 'Présent',
+        stack: 'Stack',
+        modules: 'Modules',
+      },
+      en: {
+        summary: 'PROFESSIONAL SUMMARY',
+        experience: 'PROFESSIONAL EXPERIENCE',
+        education: 'EDUCATION',
+        skills: 'SKILLS',
+        languages: 'LANGUAGES',
+        certifications: 'CERTIFICATIONS',
+        present: 'Present',
+        stack: 'Stack',
+        modules: 'Modules',
+      },
+    } as const;
+
+    if (locale === 'en') {
+      return translations.en;
+    }
+
+    return translations.fr;
+  }
+
+  private formatMonthYear(value?: string, language?: string): string {
+    if (!value) {
+      return '';
+    }
+
+    const match = value.match(/^(\d{4})-(\d{2})$/);
+    if (!match) {
+      return value;
+    }
+
+    const [, year, month] = match;
+    if ((language || 'fr').toLowerCase() === 'en') {
+      const date = new Date(Number(year), Number(month) - 1, 1);
+      return new Intl.DateTimeFormat('en-US', { month: 'short', year: 'numeric' }).format(date);
+    }
+
+    return `${month}/${year}`;
+  }
+
+  private formatDateRange(
+    start?: string,
+    end?: string,
+    isCurrent?: boolean,
+    presentLabel?: string,
+    language?: string,
+  ): string {
+    const startFormatted = this.formatMonthYear(start, language);
+    const endFormatted = isCurrent ? presentLabel || 'Present' : this.formatMonthYear(end, language);
+
+    if (startFormatted && endFormatted) {
+      return `${startFormatted} - ${endFormatted}`;
+    }
+
+    return startFormatted || endFormatted || '';
+  }
+
+  private formatLineWithDateRange(
+    prefix: string,
+    start?: string,
+    end?: string,
+    isCurrent?: boolean,
+    presentLabel?: string,
+    language?: string,
+  ): string {
+    const range = this.formatDateRange(start, end, isCurrent, presentLabel, language);
+    if (!range) {
+      return prefix;
+    }
+
+    return `${prefix} | ${range}`;
+  }
+
+  private async buildQrCodeBuffer(cvContent: CvContent): Promise<Buffer | null> {
+    if (!cvContent.qrCode?.enabled || !cvContent.qrCode.url) {
+      return null;
+    }
+
+    try {
+      return await QRCode.toBuffer(cvContent.qrCode.url, {
+        type: 'png',
+        margin: 1,
+        width: 180,
+      });
+    } catch {
+      return null;
+    }
   }
 }

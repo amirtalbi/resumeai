@@ -3,6 +3,10 @@ export default defineNuxtConfig({
 
   modules: ['@nuxt/ui', '@pinia/nuxt', '@nuxtjs/tailwindcss'],
 
+  icon: {
+    serverBundle: false,
+  },
+
   runtimeConfig: {
     public: {
       apiBase: process.env.NUXT_PUBLIC_API_BASE || '/api',

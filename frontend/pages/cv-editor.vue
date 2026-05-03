@@ -30,6 +30,15 @@
           <UInput v-model="cvTitle" placeholder="Mon CV professionnel" />
         </UCard>
 
+        <UCard>
+          <template #header>
+            <h2 class="font-semibold">Langue du CV</h2>
+          </template>
+          <UFormGroup label="Langue d'affichage">
+            <USelect v-model="cvContent.language" :options="languageOptions" />
+          </UFormGroup>
+        </UCard>
+
         <!-- Personal Info -->
         <UCard>
           <template #header>
@@ -60,6 +69,24 @@
             <UFormGroup label="LinkedIn">
               <UInput v-model="cvContent.personalInfo.linkedin" />
             </UFormGroup>
+          </div>
+        </UCard>
+
+        <UCard>
+          <template #header>
+            <h2 class="font-semibold">QR code</h2>
+          </template>
+          <div class="space-y-3">
+            <UCheckbox v-model="cvContent.qrCode.enabled" label="Afficher un QR code" />
+            <div v-if="cvContent.qrCode.enabled" class="grid grid-cols-2 gap-4">
+              <UFormGroup label="Lien cible">
+                <UInput
+                  v-model="cvContent.qrCode.url"
+                  type="url"
+                  placeholder="https://portfolio.example.com"
+                />
+              </UFormGroup>
+            </div>
           </div>
         </UCard>
 
@@ -283,6 +310,11 @@ const saving = ref(false);
 const cvTitle = ref('Mon CV');
 
 const cvContent = reactive<CvContent>({
+  language: 'fr',
+  qrCode: {
+    enabled: false,
+    url: '',
+  },
   personalInfo: {
     firstName: '',
     lastName: '',
@@ -300,6 +332,11 @@ const cvContent = reactive<CvContent>({
   languages: [],
   certifications: [],
 });
+
+const languageOptions = [
+  { label: 'Français', value: 'fr' },
+  { label: 'English', value: 'en' },
+];
 
 onMounted(async () => {
   if (route.query.id) {

@@ -130,7 +130,33 @@ class CertificationDto {
   date: string;
 }
 
+class QrCodeDto {
+  @IsOptional()
+  @IsBoolean()
+  enabled?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  url?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  label?: string;
+}
+
 class CvContentDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(5)
+  language?: string;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => QrCodeDto)
+  qrCode?: QrCodeDto;
+
   @ValidateNested()
   @Type(() => PersonalInfoDto)
   personalInfo: PersonalInfoDto;

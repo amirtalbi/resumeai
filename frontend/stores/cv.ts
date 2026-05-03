@@ -1,6 +1,12 @@
 import { defineStore } from 'pinia';
 
 export interface CvContent {
+  language?: string;
+  qrCode?: {
+    enabled?: boolean;
+    url?: string;
+    label?: string;
+  };
   personalInfo: {
     firstName: string;
     lastName: string;

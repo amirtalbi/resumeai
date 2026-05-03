@@ -4,6 +4,7 @@ import CvPreview from '~/components/CvPreview.vue';
 
 describe('CvPreview', () => {
   const fullContent = {
+    language: 'fr',
     personalInfo: {
       firstName: 'John',
       lastName: 'Doe',
@@ -69,6 +70,32 @@ describe('CvPreview', () => {
     expect(wrapper.text()).toContain('Built web applications.');
     expect(wrapper.text()).toContain('Node.js');
     expect(wrapper.text()).toContain('Docker');
+  });
+
+  it('should hide dash when a date is missing', () => {
+    const content = {
+      ...fullContent,
+      experiences: [
+        {
+          company: 'Tech Corp',
+          position: 'Senior Developer',
+          startDate: '2020-01',
+          endDate: '',
+          current: false,
+          description: 'Built web applications.',
+        },
+      ],
+    };
+
+    const wrapper = mount(CvPreview, { props: { content } });
+    expect(wrapper.text()).toContain('01/2020');
+    expect(wrapper.text()).not.toContain('01/2020 -');
+  });
+
+  it('should render English section headers when language is en', () => {
+    const content = { ...fullContent, language: 'en' };
+    const wrapper = mount(CvPreview, { props: { content } });
+    expect(wrapper.text()).toContain('Professional Summary');
   });
 
   it('should render education', () => {
