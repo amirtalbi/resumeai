@@ -17,3 +17,13 @@ export class AiJobStatusDto {
   result?: Record<string, unknown>;
   error?: string;
 }
+
+export class GenerateCoverLetterDto {
+  @ApiProperty({ description: 'CV ID to use for cover letter' })
+  @IsUUID()
+  cvId: string;
+
+  @ApiProperty({ description: 'Job offer ID to match against' })
+  @IsUUID()
+  jobOfferId: string;
+}

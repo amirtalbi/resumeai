@@ -265,6 +265,58 @@
           </div>
         </UCard>
 
+        <!-- Cover Letter -->
+        <UCard>
+          <template #header>
+            <button
+              type="button"
+              class="w-full flex items-center justify-between"
+              @click="toggleSection('coverLetter')"
+            >
+              <h2 class="font-semibold">Lettre de motivation</h2>
+              <UIcon
+                :name="sectionOpen.coverLetter ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'"
+                class="w-5 h-5 text-gray-500"
+              />
+            </button>
+          </template>
+          <div v-show="sectionOpen.coverLetter" class="space-y-4">
+            <UButton
+              block
+              :loading="aiStore.coverLetterLoading"
+              :disabled="!selectedCvId || !selectedJobId"
+              icon="i-heroicons-pencil-square"
+              @click="generateCoverLetter"
+            >
+              Générer une lettre de motivation (500 mots)
+            </UButton>
+
+            <UAlert
+              v-if="aiStore.coverLetterError"
+              color="red"
+              variant="soft"
+              :title="aiStore.coverLetterError"
+              icon="i-heroicons-exclamation-triangle"
+            />
+
+            <div v-if="aiStore.coverLetter" class="space-y-2">
+              <UTextarea
+                :model-value="aiStore.coverLetter"
+                :rows="14"
+                readonly
+              />
+              <UButton
+                size="sm"
+                variant="outline"
+                icon="i-heroicons-clipboard"
+                @click="copyCoverLetter"
+              >
+                Copier
+              </UButton>
+            </div>
+          </div>
+        </UCard>
+
         <!-- Results -->
         <UCard v-if="aiStore.result">
           <template #header>
@@ -495,7 +547,8 @@ type JobMatcherSection =
   | 'savedJobs'
   | 'optimize'
   | 'progress'
-  | 'results';
+  | 'results'
+  | 'coverLetter';
 
 const sectionOpen = reactive<Record<JobMatcherSection, boolean>>({
   autoImport: true,
@@ -504,6 +557,7 @@ const sectionOpen = reactive<Record<JobMatcherSection, boolean>>({
   optimize: true,
   progress: true,
   results: true,
+  coverLetter: true,
 });
 
 const toggleSection = (section: JobMatcherSection) => {
@@ -711,5 +765,18 @@ const applyOptimization = async () => {
   );
 
   navigateTo(`/cv-editor?id=${createdCv.id}`);
+};
+
+const generateCoverLetter = async () => {
+  await aiStore.generateCoverLetter(selectedCvId.value, selectedJobId.value);
+};
+
+const copyCoverLetter = async () => {
+  if (!aiStore.coverLetter) return;
+  try {
+    await navigator.clipboard.writeText(aiStore.coverLetter);
+  } catch {
+    // ignore clipboard errors
+  }
 };
 </script>

@@ -99,12 +99,40 @@ export class AuthService {
     return tokens;
   }
 
+  async refreshTokensFromToken(refreshToken: string) {
+    try {
+      const payload = await this.jwtService.verifyAsync<{ sub: string }>(
+        refreshToken,
+        {
+          secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+        },
+      );
+
+      if (!payload?.sub) {
+        throw new UnauthorizedException('Access denied');
+      }
+
+      return this.refreshTokens(payload.sub, refreshToken);
+    } catch {
+      throw new UnauthorizedException('Access denied');
+    }
+  }
+
   async logout(userId: string) {
     await this.userRepository.update(userId, { refreshToken: '' });
   }
 
   async validateUser(userId: string): Promise<User | null> {
     return this.userRepository.findOne({ where: { id: userId } });
+  }
+
+  async getProfile(userId: string) {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new UnauthorizedException('Access denied');
+    }
+
+    return this.sanitizeUser(user);
   }
 
   private async generateTokens(user: User) {

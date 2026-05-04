@@ -7,6 +7,9 @@ interface AiOptimizationState {
   progress: number;
   result: Record<string, unknown> | null;
   error: string | null;
+  coverLetter: string | null;
+  coverLetterLoading: boolean;
+  coverLetterError: string | null;
 }
 
 export const useAiStore = defineStore('ai', {
@@ -17,6 +20,9 @@ export const useAiStore = defineStore('ai', {
     progress: 0,
     result: null,
     error: null,
+    coverLetter: null,
+    coverLetterLoading: false,
+    coverLetterError: null,
   }),
 
   actions: {
@@ -96,6 +102,28 @@ export const useAiStore = defineStore('ai', {
       this.progress = 0;
       this.result = null;
       this.error = null;
+      this.coverLetter = null;
+      this.coverLetterLoading = false;
+      this.coverLetterError = null;
+    },
+
+    async generateCoverLetter(cvId: string, jobOfferId: string) {
+      this.coverLetterLoading = true;
+      this.coverLetterError = null;
+      this.coverLetter = null;
+      try {
+        const api = useApi();
+        const response = await api.post<{ coverLetter: string }>(
+          '/ai/cover-letter',
+          { cvId, jobOfferId },
+        );
+        this.coverLetter = response.coverLetter || null;
+      } catch (e: unknown) {
+        this.coverLetterError =
+          e instanceof Error ? e.message : 'Failed to generate cover letter';
+      } finally {
+        this.coverLetterLoading = false;
+      }
     },
   },
 });

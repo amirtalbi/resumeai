@@ -10,6 +10,8 @@ describe('AuthController', () => {
     signup: jest.fn(),
     login: jest.fn(),
     refreshTokens: jest.fn(),
+    refreshTokensFromToken: jest.fn(),
+    getProfile: jest.fn(),
     logout: jest.fn(),
   };
 
@@ -87,6 +89,37 @@ describe('AuthController', () => {
       expect(mockAuthService.logout).toHaveBeenCalledWith('user-1');
       expect(mockResponse.clearCookie).toHaveBeenCalledWith('refreshToken');
       expect(result).toEqual({ message: 'Logged out successfully' });
+    });
+
+    describe('refresh', () => {
+      it('should refresh tokens using cookie', async () => {
+        mockAuthService.refreshTokensFromToken.mockResolvedValue({
+          accessToken: 'new-access',
+          refreshToken: 'new-refresh',
+        });
+
+        const result = await controller.refresh(
+          { cookies: { refreshToken: 'cookie-refresh' } },
+          { refreshToken: '' },
+          mockResponse,
+        );
+
+        expect(mockAuthService.refreshTokensFromToken).toHaveBeenCalledWith('cookie-refresh');
+        expect(mockResponse.cookie).toHaveBeenCalled();
+        expect(result).toEqual({ accessToken: 'new-access' });
+      });
+    });
+  });
+
+  describe('me', () => {
+    it('should return current user profile', async () => {
+      const profile = { id: 'user-1', email: 'user@example.com' };
+      mockAuthService.getProfile.mockResolvedValue(profile);
+
+      const result = await controller.me('user-1');
+
+      expect(mockAuthService.getProfile).toHaveBeenCalledWith('user-1');
+      expect(result).toEqual(profile);
     });
   });
 });

@@ -37,6 +37,7 @@ export class LoginDto {
 
 export class RefreshTokenDto {
   @ApiProperty()
+  @IsOptional()
   @IsString()
-  refreshToken: string;
+  refreshToken?: string;
 }

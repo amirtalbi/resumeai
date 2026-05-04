@@ -21,7 +21,7 @@ export const useApi = () => {
       credentials: 'include',
     });
 
-    if (response.status === 401 && authStore.accessToken) {
+    if (response.status === 401) {
       const refreshed = await authStore.refreshToken();
       if (refreshed) {
         headers['Authorization'] = `Bearer ${authStore.accessToken}`;
@@ -33,11 +33,11 @@ export const useApi = () => {
           throw new Error(`API error: ${retryResponse.status}`);
         }
         return retryResponse.json();
-      } else {
-        authStore.logout();
-        navigateTo('/login');
-        throw new Error('Session expired');
       }
+
+      authStore.logout();
+      navigateTo('/login');
+      throw new Error('Session expired');
     }
 
     if (!response.ok) {

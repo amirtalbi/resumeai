@@ -10,7 +10,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AiOptimizationService } from './ai-optimization.service';
-import { OptimizeCvDto } from './dto/ai-optimization.dto';
+import { OptimizeCvDto, GenerateCoverLetterDto } from './dto/ai-optimization.dto';
 
 @ApiTags('AI Optimization')
 @Controller('ai')
@@ -40,5 +40,14 @@ export class AiOptimizationController {
   @ApiOperation({ summary: 'Check AI service health' })
   healthCheck() {
     return this.aiOptimizationService.checkAiHealth();
+  }
+
+  @Post('cover-letter')
+  @ApiOperation({ summary: 'Generate a cover letter from CV and job offer' })
+  generateCoverLetter(
+    @CurrentUser('id') userId: string,
+    @Body() dto: GenerateCoverLetterDto,
+  ) {
+    return this.aiOptimizationService.generateCoverLetter(userId, dto);
   }
 }

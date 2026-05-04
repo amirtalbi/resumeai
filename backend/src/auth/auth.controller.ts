@@ -6,11 +6,14 @@ import {
   Res,
   HttpCode,
   HttpStatus,
+  Req,
+  UnauthorizedException,
+  Get,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Response } from 'express';
 import { AuthService } from './auth.service';
-import { SignupDto, LoginDto } from './dto/auth.dto';
+import { SignupDto, LoginDto, RefreshTokenDto } from './dto/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 
@@ -44,15 +47,18 @@ export class AuthController {
 
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
   @ApiOperation({ summary: 'Refresh access token' })
   async refresh(
-    @CurrentUser('id') userId: string,
-    @Body('refreshToken') refreshToken: string,
+    @Req() req: { cookies?: Record<string, string> },
+    @Body() body: RefreshTokenDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const tokens = await this.authService.refreshTokens(userId, refreshToken);
+    const refreshToken = req.cookies?.refreshToken || body?.refreshToken;
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token missing');
+    }
+
+    const tokens = await this.authService.refreshTokensFromToken(refreshToken);
     this.setRefreshTokenCookie(res, tokens.refreshToken);
     return { accessToken: tokens.accessToken };
   }
@@ -69,6 +75,14 @@ export class AuthController {
     await this.authService.logout(userId);
     res.clearCookie('refreshToken');
     return { message: 'Logged out successfully' };
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get current user profile' })
+  async me(@CurrentUser('id') userId: string) {
+    return this.authService.getProfile(userId);
   }
 
   private setRefreshTokenCookie(res: Response, refreshToken: string) {

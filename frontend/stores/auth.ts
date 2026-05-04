@@ -29,6 +29,17 @@ export const useAuthStore = defineStore('auth', {
   },
 
   actions: {
+    async fetchMe(): Promise<boolean> {
+      try {
+        const api = useApi();
+        const user = await api.get<User>('/auth/me');
+        this.user = user;
+        return true;
+      } catch {
+        return false;
+      }
+    },
+
     async login(email: string, password: string) {
       const config = useRuntimeConfig();
       const response = await fetch(`${config.public.apiBase}/auth/login`, {
@@ -81,7 +92,6 @@ export const useAuthStore = defineStore('auth', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              Authorization: `Bearer ${this.accessToken}`,
             },
             credentials: 'include',
           },
@@ -91,6 +101,9 @@ export const useAuthStore = defineStore('auth', {
 
         const data = await response.json();
         this.accessToken = data.accessToken;
+        if (!this.user) {
+          await this.fetchMe();
+        }
         return true;
       } catch {
         return false;
