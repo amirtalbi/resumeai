@@ -24,6 +24,8 @@ export class OllamaService {
   private readonly model: string;
   private readonly timeoutMs: number;
   private readonly numPredict: number;
+  private readonly numCtx: number;
+  private readonly numGpu: number;
   private modelPullAttempted = false;
 
   constructor(private readonly configService: ConfigService) {
@@ -41,6 +43,12 @@ export class OllamaService {
     this.numPredict = Number(
       this.configService.get<string>('OLLAMA_NUM_PREDICT', '1024'),
     );
+    this.numCtx = Number(
+      this.configService.get<string>('OLLAMA_NUM_CTX', '8192'),
+    );
+    this.numGpu = Number(
+      this.configService.get<string>('OLLAMA_NUM_GPU', '99'),
+    );
   }
 
   async generate(prompt: string): Promise<string> {
@@ -55,6 +63,8 @@ export class OllamaService {
             temperature: 0.7,
             top_p: 0.9,
             num_predict: this.numPredict,
+            num_ctx: this.numCtx,
+            num_gpu: this.numGpu,
           },
         },
         this.timeoutMs,
