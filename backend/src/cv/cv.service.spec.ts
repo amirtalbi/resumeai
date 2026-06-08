@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException, ForbiddenException } from '@nestjs/common';
 import { CvService } from './cv.service';
+import { OllamaService } from '../ai-optimization/ollama.service';
 import { Cv } from './entities/cv.entity';
 import { CvVersion } from './entities/cv-version.entity';
 
@@ -9,6 +10,7 @@ describe('CvService', () => {
   let service: CvService;
   let cvRepository: Record<string, jest.Mock>;
   let cvVersionRepository: Record<string, jest.Mock>;
+  let ollamaService: { generate: jest.Mock };
 
   const mockCvContent = {
     personalInfo: {
@@ -71,11 +73,16 @@ describe('CvService', () => {
       findOne: jest.fn(),
     };
 
+    ollamaService = {
+      generate: jest.fn().mockRejectedValue(new Error('no ai')),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CvService,
         { provide: getRepositoryToken(Cv), useValue: cvRepository },
         { provide: getRepositoryToken(CvVersion), useValue: cvVersionRepository },
+        { provide: OllamaService, useValue: ollamaService },
       ],
     }).compile();
 
@@ -211,6 +218,71 @@ describe('CvService', () => {
         expect.objectContaining({
           userId: 'user-uuid-1',
           title: 'Imported',
+        }),
+      );
+    });
+
+    it('should prefer AI parsed content when available', async () => {
+      cvRepository.create.mockReturnValue(mockCv);
+      cvRepository.save.mockResolvedValue(mockCv);
+      cvVersionRepository.save.mockResolvedValue({});
+      ollamaService.generate.mockResolvedValue(
+        JSON.stringify({
+          personalInfo: { firstName: 'Jane', lastName: 'Doe', email: 'jane@example.com' },
+          summary: 'Summary',
+          experiences: [],
+          education: [],
+          skills: [],
+          languages: [],
+          certifications: [],
+        }),
+      );
+
+      const result = await service.importFromPdfText('user-uuid-1', 'Imported', 'Jane Doe');
+
+      expect(result).toEqual(mockCv);
+      expect(ollamaService.generate).toHaveBeenCalled();
+    });
+
+    it('should parse structured CV exported by the tool', async () => {
+      const text = [
+        'Amir Talbi',
+        'Fullstack Web Developer',
+        'amir@example.com | 06 64 76 70 40 | France',
+        'PROFESSIONAL SUMMARY',
+        'Passionate developer working with NestJS and Nuxt.',
+        'PROFESSIONAL EXPERIENCE',
+        'Motux.fr',
+        'Freelance | Nov 2025 - Mar 2026',
+        'Design and development of a wordle mobile game.',
+        'Stack: Flutter, NestJS, Docker',
+        'EDUCATION',
+        'Master 2 - Dev. Manager Web Fullstack',
+        'Efrei Paris',
+        'SKILLS',
+        'Backend: NestJS, PostgreSQL',
+        'Frontend: Nuxt, Vue.js',
+      ].join('\n');
+
+      cvRepository.create.mockReturnValue(mockCv);
+      cvRepository.save.mockResolvedValue(mockCv);
+      cvVersionRepository.save.mockResolvedValue({});
+
+      const result = await service.importFromPdfText('user-uuid-1', 'Imported', text);
+
+      expect(result).toEqual(mockCv);
+      expect(cvRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 'user-uuid-1',
+          title: 'Imported',
+          contentJson: expect.objectContaining({
+            personalInfo: expect.objectContaining({
+              firstName: 'Amir',
+              lastName: 'Talbi',
+              jobTitle: 'Fullstack Web Developer',
+              email: 'amir@example.com',
+            }),
+          }),
         }),
       );
     });

@@ -5,6 +5,7 @@ import { CvController } from './cv.controller';
 import { CvService } from './cv.service';
 import { Cv } from './entities/cv.entity';
 import { CvVersion } from './entities/cv-version.entity';
+import { OllamaService } from '../ai-optimization/ollama.service';
 
 @Module({
   imports: [
@@ -14,7 +15,7 @@ import { CvVersion } from './entities/cv-version.entity';
     }),
   ],
   controllers: [CvController],
-  providers: [CvService],
+  providers: [CvService, OllamaService],
   exports: [CvService],
 })
 export class CvModule {}

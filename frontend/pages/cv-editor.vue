@@ -418,7 +418,7 @@ const saveCv = async () => {
 
 const exportPdf = () => {
   if (route.query.id) {
-    cvStore.exportPdf(route.query.id as string);
+    cvStore.exportPdf(route.query.id as string, cvTitle.value);
   }
 };
 </script>

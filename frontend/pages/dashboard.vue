@@ -87,7 +87,7 @@
                 size="xs"
                 variant="ghost"
                 color="gray"
-                @click.stop="cvStore.exportPdf(cv.id)"
+                @click.stop="cvStore.exportPdf(cv.id, cv.title)"
               />
               <UButton
                 icon="i-heroicons-trash"

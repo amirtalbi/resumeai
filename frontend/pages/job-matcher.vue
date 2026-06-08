@@ -1,67 +1,107 @@
 <template>
-  <div>
-    <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-6">
-      Job Matcher - Optimisation IA
-    </h1>
+  <div class="job-matcher-page">
+    <div class="hero">
+      <div>
+        <p class="eyebrow">Job Matcher</p>
+        <h1 class="hero-title">Optimisation CV & Offres</h1>
+        <p class="hero-subtitle">
+          Centralise l'import des offres et génère tes contenus IA au même endroit.
+        </p>
+      </div>
+      <div class="hero-stats">
+        <div class="stat-card">
+          <p class="stat-label">CV disponibles</p>
+          <p class="stat-value">{{ cvStore.cvs.length }}</p>
+        </div>
+        <div class="stat-card">
+          <p class="stat-label">Offres importées</p>
+          <p class="stat-value">{{ jobOfferStore.jobOffers.length }}</p>
+        </div>
+      </div>
+    </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <!-- Job Offer Input -->
-      <div class="space-y-6">
-        <UCard v-if="canManageAutoImport">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="space-y-6 lg:col-span-2">
+        <UCard class="panel-card">
           <template #header>
-            <button
-              type="button"
-              class="w-full flex items-center justify-between"
-              @click="toggleSection('autoImport')"
-            >
-              <h2 class="font-semibold">Import automatique d'offres</h2>
-              <UIcon
-                :name="sectionOpen.autoImport ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'"
-                class="w-5 h-5 text-gray-500"
-              />
-            </button>
+            <div class="panel-header">
+              <div>
+                <h2>Sources d'offres</h2>
+                <p>Import rapide par URL, recherche multi-offres ou saisie manuelle.</p>
+              </div>
+            </div>
           </template>
-          <div v-show="sectionOpen.autoImport" class="space-y-4">
-            <UFormGroup label="Plateforme">
-              <USelect
-                v-model="importForm.platform"
-                :options="platformOptions"
-              />
-            </UFormGroup>
 
-            <UFormGroup label="Mots-clés (séparés par des virgules)">
-              <UInput
-                v-model="importForm.keywords"
-                placeholder="Ex: nodejs, docker, nest"
-              />
-            </UFormGroup>
-
-            <UFormGroup label="Localisation (optionnel)">
-              <UInput
-                v-model="importForm.location"
-                placeholder="Ex: Paris"
-              />
-            </UFormGroup>
-
-            <UFormGroup label="Coller l'URL d'une offre (LinkedIn / Hellowork / Indeed)">
+          <div class="panel-grid">
+            <div class="panel-block">
+              <h3>Importer par URL</h3>
+              <p>Colle une offre LinkedIn, Hellowork ou Indeed.</p>
               <div class="flex gap-2">
-                <UInput v-model="urlToImport" placeholder="https://..." />
+                <UInput v-model="urlToImport" class="w-full" placeholder="https://..." />
                 <UButton :loading="importingOffers" @click="importByUrl">Importer</UButton>
               </div>
-            </UFormGroup>
+            </div>
 
-            <UFormGroup label="Nombre maximum d'offres">
-              <UInput
-                v-model.number="importForm.limit"
-                type="number"
-                min="1"
-                max="25"
-              />
-            </UFormGroup>
+            <div v-if="canManageAutoImport" class="panel-block">
+              <h3>Recherche multi-offres</h3>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                <UFormGroup label="Plateforme">
+                  <USelect v-model="importForm.platform" :options="platformOptions" />
+                </UFormGroup>
+                <UFormGroup label="Localisation">
+                  <UInput v-model="importForm.location" placeholder="Ex: Paris" />
+                </UFormGroup>
+                <UFormGroup label="Mots-clés" class="md:col-span-2">
+                  <UInput v-model="importForm.keywords" placeholder="Ex: nodejs, docker, nest" />
+                </UFormGroup>
+                <UFormGroup label="Nombre maximum">
+                  <UInput v-model.number="importForm.limit" type="number" min="1" max="25" />
+                </UFormGroup>
+              </div>
+              <UButton :loading="importingOffers" block @click="importOffers">
+                Scraper et importer
+              </UButton>
+            </div>
 
-            <UButton :loading="importingOffers" block @click="importOffers">
-              Scraper et importer
-            </UButton>
+            <UAlert
+              v-else
+              color="amber"
+              variant="soft"
+              title="Import automatique restreint"
+              description="Seul le compte autorisé peut gérer l'import automatique des offres."
+            />
+
+            <div class="panel-block">
+              <h3>Saisie manuelle</h3>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <UFormGroup label="Titre du poste">
+                  <UInput v-model="jobForm.title" placeholder="Ex: Développeur Full Stack Senior" />
+                </UFormGroup>
+                <UFormGroup label="Entreprise">
+                  <UInput v-model="jobForm.company" placeholder="Ex: Google" />
+                </UFormGroup>
+                <UFormGroup label="Localisation">
+                  <UInput v-model="jobForm.location" placeholder="Ex: Paris, France" />
+                </UFormGroup>
+                <UFormGroup label="Lien de candidature">
+                  <UInput
+                    v-model="jobForm.applicationUrl"
+                    type="url"
+                    placeholder="Ex: https://www.linkedin.com/jobs/view/..."
+                  />
+                </UFormGroup>
+                <UFormGroup label="Description" class="md:col-span-2">
+                  <UTextarea
+                    v-model="jobForm.description"
+                    placeholder="Collez ici la description de l'offre d'emploi..."
+                    :rows="6"
+                  />
+                </UFormGroup>
+              </div>
+              <UButton :loading="addingJob" block @click="addJobOffer">
+                Analyser l'offre
+              </UButton>
+            </div>
 
             <UAlert
               v-if="importFeedback"
@@ -73,100 +113,80 @@
           </div>
         </UCard>
 
-        <UAlert
-          v-else
-          color="amber"
-          variant="soft"
-          title="Import automatique restreint"
-          description="Seul le compte autorisé peut gérer l'import automatique des offres."
-        />
-
-        <UCard>
+        <UCard v-if="jobOfferStore.jobOffers.length > 0" class="panel-card">
           <template #header>
-            <button
-              type="button"
-              class="w-full flex items-center justify-between"
-              @click="toggleSection('manualJob')"
-            >
-              <h2 class="font-semibold">Ajouter une offre d'emploi</h2>
-              <UIcon
-                :name="sectionOpen.manualJob ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'"
-                class="w-5 h-5 text-gray-500"
-              />
-            </button>
+            <div class="panel-header offer-header">
+              <div>
+                <h2>Offres enregistrées</h2>
+                <p>{{ jobOfferStore.jobOffers.length }} offres disponibles</p>
+              </div>
+              <div class="offer-actions">
+                <label class="offer-select-all">
+                  <input
+                    type="checkbox"
+                    :checked="allOffersSelected"
+                    @change="toggleAllOffers"
+                  />
+                  <span>Tout selectionner</span>
+                </label>
+                <UButton
+                  size="xs"
+                  color="red"
+                  variant="soft"
+                  :disabled="selectedOfferIds.length === 0 || deletingOffers"
+                  :loading="deletingOffers"
+                  icon="i-heroicons-trash"
+                  @click="bulkDeleteOffers"
+                >
+                  Supprimer ({{ selectedOfferIds.length }})
+                </UButton>
+              </div>
+            </div>
           </template>
-          <div v-show="sectionOpen.manualJob" class="space-y-4">
-            <UFormGroup label="Titre du poste">
-              <UInput v-model="jobForm.title" placeholder="Ex: Développeur Full Stack Senior" />
-            </UFormGroup>
-            <UFormGroup label="Entreprise">
-              <UInput v-model="jobForm.company" placeholder="Ex: Google" />
-            </UFormGroup>
-            <UFormGroup label="Localisation">
-              <UInput v-model="jobForm.location" placeholder="Ex: Paris, France" />
-            </UFormGroup>
-            <UFormGroup label="Lien de candidature (optionnel)">
-              <UInput
-                v-model="jobForm.applicationUrl"
-                type="url"
-                placeholder="Ex: https://www.linkedin.com/jobs/view/..."
-              />
-            </UFormGroup>
-            <UFormGroup label="Description de l'offre">
-              <UTextarea
-                v-model="jobForm.description"
-                placeholder="Collez ici la description de l'offre d'emploi..."
-                :rows="10"
-              />
-            </UFormGroup>
-            <UButton :loading="addingJob" block @click="addJobOffer">
-              Analyser l'offre
-            </UButton>
-          </div>
-        </UCard>
-
-        <!-- Saved Job Offers -->
-        <UCard v-if="jobOfferStore.jobOffers.length > 0">
-          <template #header>
-            <button
-              type="button"
-              class="w-full flex items-center justify-between"
-              @click="toggleSection('savedJobs')"
-            >
-              <h2 class="font-semibold">Offres enregistrées</h2>
-              <UIcon
-                :name="sectionOpen.savedJobs ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'"
-                class="w-5 h-5 text-gray-500"
-              />
-            </button>
-          </template>
-          <div v-show="sectionOpen.savedJobs" class="space-y-3">
+          <div class="offer-list">
             <div
               v-for="job in jobOfferStore.jobOffers"
               :key="job.id"
-              class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
-              :class="{ 'ring-2 ring-primary-500': selectedJobId === job.id }"
-              @click="selectJob(job)"
+              class="offer-card"
+              :class="{ 'is-active': selectedJobId === job.id }"
             >
-              <div class="flex justify-between items-start">
-                <div>
-                  <h3 class="font-medium">{{ job.title }}</h3>
-                  <p class="text-sm text-gray-500">{{ job.company }} - {{ job.location }}</p>
-                  <div v-if="job.applicationUrl || job.sourceUrl" class="mt-1">
-                    <UButton
-                      :to="job.applicationUrl || job.sourceUrl"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      icon="i-heroicons-arrow-top-right-on-square"
-                      size="xs"
-                      variant="ghost"
-                      color="primary"
-                      @click.stop
-                    >
-                      Candidater
-                    </UButton>
+              <div class="offer-select">
+                <input
+                  type="checkbox"
+                  :checked="selectedOfferIds.includes(job.id)"
+                  @change="toggleOffer(job.id)"
+                  @click.stop
+                />
+              </div>
+              <button type="button" class="offer-content" @click="selectJob(job)">
+                <div class="offer-main">
+                  <div>
+                    <h3>{{ job.title }}</h3>
+                    <p>{{ job.company }} · {{ job.location }}</p>
                   </div>
-                  <div class="flex flex-wrap gap-1 mt-2">
+                  <UButton
+                    icon="i-heroicons-trash"
+                    size="xs"
+                    variant="ghost"
+                    color="red"
+                    @click.stop="deleteJob(job.id)"
+                  />
+                </div>
+                <div class="offer-meta">
+                  <UButton
+                    v-if="job.applicationUrl || job.sourceUrl"
+                    :to="job.applicationUrl || job.sourceUrl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    icon="i-heroicons-arrow-top-right-on-square"
+                    size="xs"
+                    variant="ghost"
+                    color="primary"
+                    @click.stop
+                  >
+                    Candidater
+                  </UButton>
+                  <div class="offer-tags">
                     <UBadge
                       v-for="skill in job.requiredSkills.slice(0, 5)"
                       :key="skill"
@@ -185,208 +205,147 @@
                     </UBadge>
                   </div>
                 </div>
-                <UButton
-                  icon="i-heroicons-trash"
-                  size="xs"
-                  variant="ghost"
-                  color="red"
-                  @click.stop="deleteJob(job.id)"
-                />
-              </div>
+              </button>
             </div>
           </div>
         </UCard>
       </div>
 
-      <!-- Optimization Panel -->
       <div class="space-y-6">
-        <!-- CV Selection -->
-        <UCard>
+        <UCard class="panel-card sticky-panel">
           <template #header>
-            <button
-              type="button"
-              class="w-full flex items-center justify-between"
-              @click="toggleSection('optimize')"
-            >
-              <h2 class="font-semibold">Optimiser un CV</h2>
-              <UIcon
-                :name="sectionOpen.optimize ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'"
-                class="w-5 h-5 text-gray-500"
-              />
-            </button>
+            <div class="panel-header">
+              <div>
+                <h2>Optimisation</h2>
+                <p>Choisis un CV et une offre pour lancer l'IA.</p>
+              </div>
+            </div>
           </template>
-          <div v-show="sectionOpen.optimize" class="space-y-4">
-            <UFormGroup label="Sélectionner un CV">
-              <USelect
-                v-model="selectedCvId"
-                :options="cvOptions"
-                placeholder="Choisir un CV..."
-              />
-            </UFormGroup>
-            <UFormGroup label="Offre d'emploi">
-              <USelect
-                v-model="selectedJobId"
-                :options="jobOptions"
-                placeholder="Choisir une offre..."
-              />
-            </UFormGroup>
-            <UButton
-              block
-              :loading="aiStore.optimizing"
-              :disabled="!selectedCvId || !selectedJobId"
-              icon="i-heroicons-cpu-chip"
-              @click="optimize"
-            >
-              Optimiser avec l'IA
-            </UButton>
-          </div>
-        </UCard>
 
-        <!-- Progress -->
-        <UCard v-if="aiStore.optimizing">
-          <template #header>
-            <button
-              type="button"
-              class="w-full flex items-center justify-between"
-              @click="toggleSection('progress')"
-            >
-              <h2 class="font-semibold">Optimisation en cours...</h2>
-              <UIcon
-                :name="sectionOpen.progress ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'"
-                class="w-5 h-5 text-gray-500"
-              />
-            </button>
-          </template>
-          <div v-show="sectionOpen.progress" class="space-y-3">
-            <UProgress :value="aiStore.progress" />
-            <p class="text-sm text-gray-500 text-center">
-              {{ aiStore.status }} - {{ aiStore.progress }}%
-            </p>
-          </div>
-        </UCard>
-
-        <!-- Cover Letter -->
-        <UCard>
-          <template #header>
-            <button
-              type="button"
-              class="w-full flex items-center justify-between"
-              @click="toggleSection('coverLetter')"
-            >
-              <h2 class="font-semibold">Lettre de motivation</h2>
-              <UIcon
-                :name="sectionOpen.coverLetter ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'"
-                class="w-5 h-5 text-gray-500"
-              />
-            </button>
-          </template>
-          <div v-show="sectionOpen.coverLetter" class="space-y-4">
-            <UButton
-              block
-              :loading="aiStore.coverLetterLoading"
-              :disabled="!selectedCvId || !selectedJobId"
-              icon="i-heroicons-pencil-square"
-              @click="generateCoverLetter"
-            >
-              Générer une lettre de motivation (500 mots)
-            </UButton>
-
-            <UAlert
-              v-if="aiStore.coverLetterError"
-              color="red"
-              variant="soft"
-              :title="aiStore.coverLetterError"
-              icon="i-heroicons-exclamation-triangle"
-            />
-
-            <div v-if="aiStore.coverLetter" class="space-y-2">
-              <UTextarea
-                :model-value="aiStore.coverLetter"
-                :rows="14"
-                readonly
-              />
+          <div class="panel-stack">
+            <div class="panel-block">
+              <UFormGroup label="Sélectionner un CV">
+                <USelect
+                  v-model="selectedCvId"
+                  :options="cvOptions"
+                  placeholder="Choisir un CV..."
+                />
+              </UFormGroup>
+              <UFormGroup label="Offre d'emploi">
+                <USelect
+                  v-model="selectedJobId"
+                  :options="jobOptions"
+                  placeholder="Choisir une offre..."
+                />
+              </UFormGroup>
               <UButton
-                size="sm"
-                variant="outline"
-                icon="i-heroicons-clipboard"
-                @click="copyCoverLetter"
+                block
+                :loading="aiStore.optimizing"
+                :disabled="!selectedCvId || !selectedJobId"
+                icon="i-heroicons-cpu-chip"
+                @click="optimize"
               >
-                Copier
+                Optimiser avec l'IA
               </UButton>
             </div>
-          </div>
-        </UCard>
 
-        <!-- Results -->
-        <UCard v-if="aiStore.result">
-          <template #header>
-            <button
-              type="button"
-              class="w-full flex items-center justify-between"
-              @click="toggleSection('results')"
-            >
-              <h2 class="font-semibold text-green-600">Optimisation terminée</h2>
-              <UIcon
-                :name="sectionOpen.results ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'"
-                class="w-5 h-5 text-gray-500"
-              />
-            </button>
-          </template>
-          <div v-show="sectionOpen.results" class="space-y-4">
-            <div v-if="aiStore.result.compatibilityScore" class="text-center">
-              <p class="text-4xl font-bold text-primary-600">
-                {{ aiStore.result.compatibilityScore }}%
+            <div v-if="aiStore.optimizing" class="panel-block">
+              <UProgress :value="aiStore.progress" />
+              <p class="text-sm text-gray-500 text-center">
+                {{ aiStore.status }} - {{ aiStore.progress }}%
               </p>
-              <p class="text-sm text-gray-500">Score de compatibilité</p>
             </div>
 
-            <div v-if="aiStore.result.changes">
-              <h3 class="font-medium mb-2">Modifications apportées :</h3>
-              <ul class="space-y-1">
-                <li
-                  v-for="(change, i) in (aiStore.result.changes as any[])"
-                  :key="i"
-                  class="text-sm text-gray-600 dark:text-gray-400 flex items-start gap-2"
-                >
-                  <UIcon name="i-heroicons-check-circle" class="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                  <span><strong>{{ change.section }}</strong>: {{ change.description }}</span>
-                </li>
-              </ul>
-            </div>
+            <div class="panel-block">
+              <h3>Lettre de motivation</h3>
+              <UButton
+                block
+                :loading="aiStore.coverLetterLoading"
+                :disabled="!selectedCvId || !selectedJobId"
+                icon="i-heroicons-pencil-square"
+                @click="generateCoverLetter"
+              >
+                Générer une lettre de motivation (500 mots)
+              </UButton>
 
-            <div v-if="aiStore.result.addedKeywords">
-              <h3 class="font-medium mb-2">Mots-clés ajoutés :</h3>
-              <div class="flex flex-wrap gap-1">
-                <UBadge
-                  v-for="kw in (aiStore.result.addedKeywords as string[])"
-                  :key="kw"
-                  size="xs"
-                  color="green"
+              <UAlert
+                v-if="aiStore.coverLetterError"
+                color="red"
+                variant="soft"
+                :title="aiStore.coverLetterError"
+                icon="i-heroicons-exclamation-triangle"
+              />
+
+              <div v-if="aiStore.coverLetter" class="space-y-2">
+                <UTextarea
+                  :model-value="aiStore.coverLetter"
+                  :rows="10"
+                  readonly
+                />
+                <UButton
+                  size="sm"
+                  variant="outline"
+                  icon="i-heroicons-clipboard"
+                  @click="copyCoverLetter"
                 >
-                  {{ kw }}
-                </UBadge>
+                  Copier
+                </UButton>
               </div>
             </div>
 
-            <UButton
-              v-if="aiStore.result.optimizedContent"
-              block
-              variant="outline"
-              @click="applyOptimization"
-            >
-              Créer une copie optimisée du CV
-            </UButton>
+            <div v-if="aiStore.result" class="panel-block">
+              <div v-if="aiStore.result.compatibilityScore" class="score-block">
+                <p class="score-value">{{ aiStore.result.compatibilityScore }}%</p>
+                <p class="score-label">Score de compatibilité</p>
+              </div>
+
+              <div v-if="aiStore.result.changes" class="space-y-2">
+                <h3>Modifications apportées</h3>
+                <ul class="space-y-1">
+                  <li
+                    v-for="(change, i) in (aiStore.result.changes as any[])"
+                    :key="i"
+                    class="text-sm text-gray-600 dark:text-gray-400 flex items-start gap-2"
+                  >
+                    <UIcon name="i-heroicons-check-circle" class="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                    <span><strong>{{ change.section }}</strong>: {{ change.description }}</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div v-if="aiStore.result.addedKeywords" class="space-y-2">
+                <h3>Mots-clés ajoutés</h3>
+                <div class="flex flex-wrap gap-1">
+                  <UBadge
+                    v-for="kw in (aiStore.result.addedKeywords as string[])"
+                    :key="kw"
+                    size="xs"
+                    color="green"
+                  >
+                    {{ kw }}
+                  </UBadge>
+                </div>
+              </div>
+
+              <UButton
+                v-if="aiStore.result.optimizedContent"
+                block
+                variant="outline"
+                @click="applyOptimization"
+              >
+                Créer une copie optimisée du CV
+              </UButton>
+            </div>
+
+            <UAlert
+              v-if="aiStore.error"
+              color="red"
+              variant="soft"
+              :title="aiStore.error"
+              icon="i-heroicons-exclamation-triangle"
+            />
           </div>
         </UCard>
-
-        <!-- Error -->
-        <UAlert
-          v-if="aiStore.error"
-          color="red"
-          variant="soft"
-          :title="aiStore.error"
-          icon="i-heroicons-exclamation-triangle"
-        />
       </div>
     </div>
 
@@ -510,8 +469,10 @@ const selectedCvId = ref('');
 const selectedJobId = ref('');
 const addingJob = ref(false);
 const importingOffers = ref(false);
+const deletingOffers = ref(false);
 const showJobDetailsModal = ref(false);
 const activeJobOffer = ref<JobOffer | null>(null);
+const selectedOfferIds = ref<string[]>([]);
 const importFeedback = ref<{
   color: 'green' | 'amber' | 'red';
   title: string;
@@ -541,29 +502,6 @@ const platformOptions = [
   { label: 'Hellowork', value: 'hellowork' },
 ];
 
-type JobMatcherSection =
-  | 'autoImport'
-  | 'manualJob'
-  | 'savedJobs'
-  | 'optimize'
-  | 'progress'
-  | 'results'
-  | 'coverLetter';
-
-const sectionOpen = reactive<Record<JobMatcherSection, boolean>>({
-  autoImport: true,
-  manualJob: true,
-  savedJobs: true,
-  optimize: true,
-  progress: true,
-  results: true,
-  coverLetter: true,
-});
-
-const toggleSection = (section: JobMatcherSection) => {
-  sectionOpen[section] = !sectionOpen[section];
-};
-
 const canManageAutoImport = computed(
   () =>
     authStore.user?.email?.toLowerCase() ===
@@ -583,6 +521,11 @@ const jobOptions = computed(() =>
     label: `${j.title} - ${j.company || 'N/A'}`,
     value: j.id,
   })),
+);
+
+const allOffersSelected = computed(() =>
+  jobOfferStore.jobOffers.length > 0 &&
+  selectedOfferIds.value.length === jobOfferStore.jobOffers.length,
 );
 
 const formatDate = (date: string) =>
@@ -738,6 +681,40 @@ const addJobOffer = async () => {
 const deleteJob = async (id: string) => {
   await jobOfferStore.deleteJobOffer(id);
   if (selectedJobId.value === id) selectedJobId.value = '';
+  selectedOfferIds.value = selectedOfferIds.value.filter((offerId) => offerId !== id);
+  await Promise.all([cvStore.fetchCvs(), jobOfferStore.fetchJobOffers()]);
+};
+
+const toggleOffer = (id: string) => {
+  if (selectedOfferIds.value.includes(id)) {
+    selectedOfferIds.value = selectedOfferIds.value.filter((offerId) => offerId !== id);
+    return;
+  }
+  selectedOfferIds.value = [...selectedOfferIds.value, id];
+};
+
+const toggleAllOffers = () => {
+  if (allOffersSelected.value) {
+    selectedOfferIds.value = [];
+    return;
+  }
+  selectedOfferIds.value = jobOfferStore.jobOffers.map((offer) => offer.id);
+};
+
+const bulkDeleteOffers = async () => {
+  if (selectedOfferIds.value.length === 0) return;
+  deletingOffers.value = true;
+  const idsToDelete = [...selectedOfferIds.value];
+  try {
+    await jobOfferStore.deleteJobOffers(idsToDelete);
+    if (selectedJobId.value && idsToDelete.includes(selectedJobId.value)) {
+      selectedJobId.value = '';
+    }
+    selectedOfferIds.value = [];
+    await Promise.all([cvStore.fetchCvs(), jobOfferStore.fetchJobOffers()]);
+  } finally {
+    deletingOffers.value = false;
+  }
 };
 
 const optimize = async () => {
@@ -780,3 +757,264 @@ const copyCoverLetter = async () => {
   }
 };
 </script>
+
+<style scoped>
+.job-matcher-page {
+  font-family: inherit;
+  padding: 0 clamp(16px, 2vw, 32px) 32px;
+  margin: 0 calc(-1 * clamp(16px, 2vw, 32px));
+  background: radial-gradient(circle at top, #111a2e 0%, #0b1220 60%, #0a0f1c 100%);
+  min-height: 100vh;
+  width: 100%;
+}
+
+.hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 28px;
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  font-size: 0.72rem;
+  color: #94a3b8;
+  margin-bottom: 8px;
+}
+
+.hero-title {
+  font-size: clamp(2rem, 2.6vw, 2.8rem);
+  line-height: 1.1;
+  color: #f8fafc;
+  margin-bottom: 8px;
+}
+
+.hero-subtitle {
+  max-width: 520px;
+  color: #94a3b8;
+  font-size: 1rem;
+}
+
+.hero-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  min-width: 260px;
+}
+
+.stat-card {
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 16px;
+  padding: 14px 16px;
+  box-shadow: 0 10px 24px rgba(2, 6, 23, 0.35);
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+.panel-card {
+  /* background: #0f172a; */
+  border: 1px solid #1e293b;
+  box-shadow: 0 16px 32px rgba(2, 6, 23, 0.4);
+  border-radius: 18px;
+}
+
+.panel-header h2 {
+  font-size: 1.25rem;
+  color: #f8fafc;
+}
+
+.panel-header p {
+  color: #94a3b8;
+  font-size: 0.9rem;
+  margin-top: 4px;
+}
+
+.panel-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.panel-stack {
+  display: grid;
+  gap: 18px;
+}
+
+.panel-block {
+  padding: 16px;
+  border-radius: 14px;
+  background: #101a2f;
+  border: 1px solid #1f2a44;
+  display: grid;
+  gap: 12px;
+}
+
+.panel-block h3 {
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.offer-list {
+  display: grid;
+  gap: 12px;
+}
+
+.offer-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.offer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.offer-select-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: #cbd5f5;
+}
+
+.offer-select {
+  display: flex;
+  align-items: flex-start;
+  padding-top: 4px;
+}
+
+.offer-select input,
+.offer-select-all input {
+  width: 16px;
+  height: 16px;
+  accent-color: #3b82f6;
+}
+
+.offer-content {
+  text-align: left;
+}
+
+.offer-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: flex-start;
+  text-align: left;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid #1f2a44;
+  background: #0f172a;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.offer-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 22px rgba(2, 6, 23, 0.4);
+  border-color: rgba(59, 130, 246, 0.45);
+}
+
+.offer-card.is-active {
+  border-color: rgba(59, 130, 246, 0.7);
+  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.2);
+  background: rgba(30, 58, 138, 0.35);
+}
+
+.offer-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.offer-main h3 {
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+.offer-main p {
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.offer-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.offer-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.score-block {
+  text-align: center;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(37, 99, 235, 0.18);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+}
+
+.score-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #bfdbfe;
+}
+
+.score-label {
+  font-size: 0.85rem;
+  color: #93c5fd;
+}
+
+.job-matcher-page :deep(input),
+.job-matcher-page :deep(textarea),
+.job-matcher-page :deep(select) {
+  background-color: #0b1220;
+  border-color: #1f2a44;
+  color: #e2e8f0;
+}
+
+.job-matcher-page :deep(input::placeholder),
+.job-matcher-page :deep(textarea::placeholder) {
+  color: #64748b;
+}
+
+.job-matcher-page :deep(.text-gray-500),
+.job-matcher-page :deep(.text-gray-600),
+.job-matcher-page :deep(.text-gray-700) {
+  color: #94a3b8;
+}
+
+.sticky-panel {
+  position: sticky;
+  top: 24px;
+}
+
+@media (max-width: 1024px) {
+  .sticky-panel {
+    position: static;
+  }
+}
+</style>

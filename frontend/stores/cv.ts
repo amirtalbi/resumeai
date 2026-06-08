@@ -169,14 +169,15 @@ export const useCvStore = defineStore('cv', {
       }
     },
 
-    async exportPdf(cvId: string) {
+    async exportPdf(cvId: string, title?: string) {
       try {
         const api = useApi();
         const blob = await api.download(`/pdf/export/${cvId}`);
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `cv-${cvId}.pdf`;
+        const safeTitle = this.sanitizeFileName(title || `cv-${cvId}`);
+        a.download = `${safeTitle}.pdf`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
@@ -185,6 +186,17 @@ export const useCvStore = defineStore('cv', {
         this.error = e instanceof Error ? e.message : 'Failed to export PDF';
         throw e;
       }
+    },
+  },
+  getters: {
+    sanitizeFileName: () => (value: string) => {
+      const normalized = value
+        .normalize('NFD')
+        .replace(/[^\x00-\x7F]/g, '')
+        .replace(/[^a-zA-Z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .toLowerCase();
+      return normalized || 'cv';
     },
   },
 });

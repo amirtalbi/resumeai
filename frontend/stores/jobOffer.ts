@@ -82,13 +82,37 @@ export const useJobOfferStore = defineStore('jobOffer', {
 
     async deleteJobOffer(id: string) {
       this.loading = true;
+      this.error = null;
       try {
         const api = useApi();
         await api.delete(`/job-offer/${id}`);
         this.jobOffers = this.jobOffers.filter((j) => j.id !== id);
+        if (this.currentJobOffer?.id === id) this.currentJobOffer = null;
+        await this.fetchJobOffers();
       } catch (e: unknown) {
         this.error =
           e instanceof Error ? e.message : 'Failed to delete job offer';
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async deleteJobOffers(ids: string[]) {
+      if (ids.length === 0) return;
+      this.loading = true;
+      this.error = null;
+      try {
+        const api = useApi();
+        await Promise.all(ids.map((id) => api.delete(`/job-offer/${id}`)));
+        const idSet = new Set(ids);
+        this.jobOffers = this.jobOffers.filter((offer) => !idSet.has(offer.id));
+        if (this.currentJobOffer && idSet.has(this.currentJobOffer.id)) {
+          this.currentJobOffer = null;
+        }
+        await this.fetchJobOffers();
+      } catch (e: unknown) {
+        this.error =
+          e instanceof Error ? e.message : 'Failed to delete job offers';
       } finally {
         this.loading = false;
       }

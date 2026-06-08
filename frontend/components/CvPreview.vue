@@ -25,15 +25,15 @@
 
     <!-- Summary -->
     <div v-if="content.summary" class="section-gap">
-      <h2 class="text-sm font-bold uppercase tracking-wider mb-1">{{ labels.summary }}</h2>
-      <hr class="border-gray-300 mb-2" />
+      <h2 class="text-sm font-bold uppercase tracking-wider mb-0.5">{{ labels.summary }}</h2>
+      <hr class="border-gray-300 mb-1" />
       <p class="text-xs">{{ content.summary }}</p>
     </div>
 
     <!-- Experience -->
     <div v-if="content.experiences?.length" class="section-gap">
-      <h2 class="text-sm font-bold uppercase tracking-wider mb-1">{{ labels.experience }}</h2>
-      <hr class="border-gray-300 mb-2" />
+      <h2 class="text-sm font-bold uppercase tracking-wider mb-0.5">{{ labels.experience }}</h2>
+      <hr class="border-gray-300 mb-1" />
       <div v-for="(exp, i) in content.experiences" :key="i" class="mb-3">
         <div class="flex justify-between">
           <strong class="text-xs">{{ exp.position }}</strong>
@@ -54,8 +54,8 @@
 
     <!-- Education -->
     <div v-if="content.education?.length" class="section-gap">
-      <h2 class="text-sm font-bold uppercase tracking-wider mb-1">{{ labels.education }}</h2>
-      <hr class="border-gray-300 mb-2" />
+      <h2 class="text-sm font-bold uppercase tracking-wider mb-0.5">{{ labels.education }}</h2>
+      <hr class="border-gray-300 mb-1" />
       <div v-for="(edu, i) in content.education" :key="i" class="mb-2">
         <strong class="text-xs">{{ edu.degree }} - {{ edu.field }}</strong>
         <p class="text-xs text-gray-600">
@@ -72,8 +72,8 @@
 
     <!-- Skills -->
     <div v-if="content.skills?.length" class="section-gap">
-      <h2 class="text-sm font-bold uppercase tracking-wider mb-1">{{ labels.skills }}</h2>
-      <hr class="border-gray-300 mb-2" />
+      <h2 class="text-sm font-bold uppercase tracking-wider mb-0.5">{{ labels.skills }}</h2>
+      <hr class="border-gray-300 mb-1" />
       <div v-for="(skill, i) in content.skills" :key="i" class="text-xs mb-1">
         <strong>{{ skill.category }}: </strong>{{ skill.items.join(', ') }}
       </div>
@@ -81,8 +81,8 @@
 
     <!-- Languages -->
     <div v-if="content.languages?.length" class="section-gap">
-      <h2 class="text-sm font-bold uppercase tracking-wider mb-1">{{ labels.languages }}</h2>
-      <hr class="border-gray-300 mb-2" />
+      <h2 class="text-sm font-bold uppercase tracking-wider mb-0.5">{{ labels.languages }}</h2>
+      <hr class="border-gray-300 mb-1" />
       <p class="text-xs">
         <span v-for="(lang, i) in content.languages" :key="i">
           {{ lang.name }} ({{ lang.level }})<span v-if="i < content.languages.length - 1">, </span>
@@ -92,8 +92,8 @@
 
     <!-- Certifications -->
     <div v-if="content.certifications?.length">
-      <h2 class="text-sm font-bold uppercase tracking-wider mb-1">{{ labels.certifications }}</h2>
-      <hr class="border-gray-300 mb-2" />
+      <h2 class="text-sm font-bold uppercase tracking-wider mb-0.5">{{ labels.certifications }}</h2>
+      <hr class="border-gray-300 mb-1" />
       <ul class="text-xs">
         <li v-for="(cert, i) in content.certifications" :key="i">
           {{ cert.name }} - {{ cert.issuer }} ({{ cert.date }})

@@ -256,7 +256,7 @@ export class PdfExportService {
 
   private addSectionTitle(doc: PDFKit.PDFDocument, title: string) {
     doc.font('Helvetica-Bold').fontSize(15).text(title);
-    doc.moveDown(this.scaleSectionGap(0.35));
+    doc.moveDown(this.scaleSectionGap(0.12));
     this.drawLine(doc);
   }
 
@@ -270,7 +270,7 @@ export class PdfExportService {
       .strokeColor('#333333')
       .lineWidth(0.5)
       .stroke();
-    doc.moveDown(this.scaleSectionGap(0.55));
+    doc.moveDown(this.scaleSectionGap(0.25));
   }
 
   private scaleSectionGap(value: number): number {

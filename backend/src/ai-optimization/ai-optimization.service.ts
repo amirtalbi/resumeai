@@ -114,18 +114,22 @@ export class AiOptimizationService {
       ? 'You are a professional recruiter and copywriter.'
       : 'Tu es un recruteur professionnel et un rédacteur expert.';
     const instructions = language === 'en'
-      ? `Write a 500-word cover letter tailored to the job offer below.
-1. Use only facts from the CV. Do not invent skills, companies, roles, or dates.
-2. Align experience with the job requirements.
-3. Keep a confident, professional tone.
-4. Do not use bullet points; write in paragraphs.
-5. Output only the letter text, no title, no JSON, no markdown.`
-      : `Rédige une lettre de motivation d'environ 500 mots, adaptée à l'offre d'emploi ci-dessous.
-1. Utilise uniquement les faits présents dans le CV. N'invente aucune compétence, entreprise, poste ou date.
-2. Aligne l'expérience sur les exigences du poste.
-3. Garde un ton professionnel et convaincant.
-4. Pas de puces, uniquement des paragraphes.
-5. Réponds uniquement avec le texte de la lettre, sans titre, sans JSON, sans markdown.`;
+      ? `Write a cover letter strictly based on the CV and the job offer below.
+1. Use ONLY facts present in the CV. Do not invent skills, companies, roles, dates, projects, certifications, or achievements.
+2. If a detail is missing from the CV, do not mention it.
+3. Align existing experience with the job requirements without adding new facts.
+4. Keep a confident, professional tone.
+5. No bullet points; write in paragraphs.
+6. Output only the letter text, no title, no JSON, no markdown.
+7. HARD LIMIT: maximum 500 words.`
+      : `Rédige une lettre de motivation strictement basée sur le CV et l'offre d'emploi ci-dessous.
+1. Utilise UNIQUEMENT les faits présents dans le CV. N'invente aucune compétence, entreprise, poste, date, projet, certification ou réalisation.
+2. Si un détail n'est pas dans le CV, ne le mentionne pas.
+3. Aligne l'expérience existante sur les exigences du poste sans ajouter de faits.
+4. Garde un ton professionnel et convaincant.
+5. Pas de puces, uniquement des paragraphes.
+6. Réponds uniquement avec le texte de la lettre, sans titre, sans JSON, sans markdown.
+7. LIMITE STRICTE: maximum 500 mots.`;
 
     return `${intro}
 
@@ -143,6 +147,12 @@ ${jobDescription}
   }
 
   private trimCoverLetter(text: string): string {
-    return text.replace(/^[\s\r\n]+|[\s\r\n]+$/g, '');
+    const cleaned = text.replace(/^[\s\r\n]+|[\s\r\n]+$/g, '');
+    const words = cleaned.split(/\s+/).filter(Boolean);
+    if (words.length <= 500) {
+      return cleaned;
+    }
+
+    return words.slice(0, 500).join(' ');
   }
 }
