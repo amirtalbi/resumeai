@@ -33,3 +33,8 @@ npm-debug.log*
 postgres-data/
 redis-data/
 ollama-data/
+
+# Private fils
+*.pdf
+*.docx
+*.cdc
