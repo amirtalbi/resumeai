@@ -1,6 +1,6 @@
-import { defineStore } from 'pinia';
+import { defineStore } from "pinia";
 
-export type JobOfferPlatform = 'linkedin' | 'indeed' | 'hellowork';
+export type JobOfferPlatform = "linkedin" | "indeed" | "hellowork";
 
 export interface JobOffer {
   id: string;
@@ -34,7 +34,7 @@ interface JobOfferState {
   error: string | null;
 }
 
-export const useJobOfferStore = defineStore('jobOffer', {
+export const useJobOfferStore = defineStore("jobOffer", {
   state: (): JobOfferState => ({
     jobOffers: [],
     currentJobOffer: null,
@@ -48,10 +48,10 @@ export const useJobOfferStore = defineStore('jobOffer', {
       this.error = null;
       try {
         const api = useApi();
-        this.jobOffers = await api.get<JobOffer[]>('/job-offer');
+        this.jobOffers = await api.get<JobOffer[]>("/job-offer");
       } catch (e: unknown) {
         this.error =
-          e instanceof Error ? e.message : 'Failed to fetch job offers';
+          e instanceof Error ? e.message : "Failed to fetch job offers";
       } finally {
         this.loading = false;
       }
@@ -68,12 +68,12 @@ export const useJobOfferStore = defineStore('jobOffer', {
       this.error = null;
       try {
         const api = useApi();
-        const jobOffer = await api.post<JobOffer>('/job-offer', data);
+        const jobOffer = await api.post<JobOffer>("/job-offer", data);
         this.jobOffers.unshift(jobOffer);
         return jobOffer;
       } catch (e: unknown) {
         this.error =
-          e instanceof Error ? e.message : 'Failed to create job offer';
+          e instanceof Error ? e.message : "Failed to create job offer";
         throw e;
       } finally {
         this.loading = false;
@@ -91,7 +91,7 @@ export const useJobOfferStore = defineStore('jobOffer', {
         await this.fetchJobOffers();
       } catch (e: unknown) {
         this.error =
-          e instanceof Error ? e.message : 'Failed to delete job offer';
+          e instanceof Error ? e.message : "Failed to delete job offer";
       } finally {
         this.loading = false;
       }
@@ -112,7 +112,7 @@ export const useJobOfferStore = defineStore('jobOffer', {
         await this.fetchJobOffers();
       } catch (e: unknown) {
         this.error =
-          e instanceof Error ? e.message : 'Failed to delete job offers';
+          e instanceof Error ? e.message : "Failed to delete job offers";
       } finally {
         this.loading = false;
       }
@@ -120,6 +120,7 @@ export const useJobOfferStore = defineStore('jobOffer', {
 
     async importJobOffers(data: {
       platform: JobOfferPlatform;
+      title: string;
       keywords: string[];
       location?: string;
       limit?: number;
@@ -128,18 +129,23 @@ export const useJobOfferStore = defineStore('jobOffer', {
       this.error = null;
       try {
         const api = useApi();
-        const result = await api.post<ImportJobOffersResult>('/job-offer/import', data);
+        const result = await api.post<ImportJobOffersResult>(
+          "/job-offer/import",
+          data,
+        );
 
         if (Array.isArray(result.offers) && result.offers.length > 0) {
           const existingIds = new Set(this.jobOffers.map((offer) => offer.id));
-          const imported = result.offers.filter((offer) => !existingIds.has(offer.id));
+          const imported = result.offers.filter(
+            (offer) => !existingIds.has(offer.id),
+          );
           this.jobOffers = [...imported, ...this.jobOffers];
         }
 
         return result;
       } catch (e: unknown) {
         this.error =
-          e instanceof Error ? e.message : 'Failed to import job offers';
+          e instanceof Error ? e.message : "Failed to import job offers";
         throw e;
       } finally {
         this.loading = false;
@@ -150,7 +156,7 @@ export const useJobOfferStore = defineStore('jobOffer', {
       this.error = null;
       try {
         const api = useApi();
-        const job = await api.post<JobOffer>('/job-offer/import/url', data);
+        const job = await api.post<JobOffer>("/job-offer/import/url", data);
 
         const existingIds = new Set(this.jobOffers.map((offer) => offer.id));
         if (!existingIds.has(job.id)) {
@@ -159,11 +165,42 @@ export const useJobOfferStore = defineStore('jobOffer', {
 
         return job;
       } catch (e: unknown) {
-        this.error = e instanceof Error ? e.message : 'Failed to import job offer by URL';
+        this.error =
+          e instanceof Error ? e.message : "Failed to import job offer by URL";
         throw e;
       } finally {
         this.loading = false;
       }
+    },
+    startOffersStream(userId: string) {
+      const api = useApi();
+      const { connect, abort } = api.stream(`/job-offer/stream/${userId}`);
+
+      const run = async () => {
+        const response = await connect();
+        if (!response.ok || !response.body) return;
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          for (const line of chunk.split("\n")) {
+            if (!line.startsWith("data:")) continue;
+            try {
+              const offer: JobOffer = JSON.parse(line.slice(5).trim());
+              const existingIds = new Set(this.jobOffers.map((o) => o.id));
+              if (!existingIds.has(offer.id)) this.jobOffers.unshift(offer);
+            } catch {}
+          }
+        }
+      };
+
+      run().catch(() => {});
+      return abort;
     },
   },
 });

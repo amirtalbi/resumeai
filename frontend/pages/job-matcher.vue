@@ -5,7 +5,8 @@
         <p class="eyebrow">Job Matcher</p>
         <h1 class="hero-title">Optimisation CV & Offres</h1>
         <p class="hero-subtitle">
-          Centralise l'import des offres et génère tes contenus IA au même endroit.
+          Centralise l'import des offres et génère tes contenus IA au même
+          endroit.
         </p>
       </div>
       <div class="hero-stats">
@@ -27,61 +28,88 @@
             <div class="panel-header">
               <div>
                 <h2>Sources d'offres</h2>
-                <p>Import rapide par URL, recherche multi-offres ou saisie manuelle.</p>
+                <p>
+                  Import rapide par URL, recherche multi-offres ou saisie
+                  manuelle.
+                </p>
               </div>
             </div>
           </template>
 
-          <div class="panel-grid">
-            <div class="panel-block">
+          <UTabs :items="items">
+            <template #urlImport>
               <h3>Importer par URL</h3>
               <p>Colle une offre LinkedIn, Hellowork ou Indeed.</p>
               <div class="flex gap-2">
-                <UInput v-model="urlToImport" class="w-full" placeholder="https://..." />
-                <UButton :loading="importingOffers" @click="importByUrl">Importer</UButton>
+                <UInput
+                  v-model="urlToImport"
+                  class="w-full"
+                  placeholder="https://..."
+                />
+                <UButton :loading="importingOffers" @click="importByUrl"
+                  >Importer</UButton
+                >
               </div>
-            </div>
+            </template>
 
-            <div v-if="canManageAutoImport" class="panel-block">
+            <template #autoImport v-if="canManageAutoImport">
               <h3>Recherche multi-offres</h3>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
                 <UFormGroup label="Plateforme">
-                  <USelect v-model="importForm.platform" :options="platformOptions" />
+                  <USelect
+                    v-model="importForm.platform"
+                    :options="platformOptions"
+                  />
                 </UFormGroup>
                 <UFormGroup label="Localisation">
-                  <UInput v-model="importForm.location" placeholder="Ex: Paris" />
+                  <UInput
+                    v-model="importForm.location"
+                    placeholder="Ex: Paris"
+                  />
                 </UFormGroup>
-                <UFormGroup label="Mots-clés" class="md:col-span-2">
-                  <UInput v-model="importForm.keywords" placeholder="Ex: nodejs, docker, nest" />
+                <UFormGroup label="Titre de l'offre">
+                  <UInput
+                    v-model.number="importForm.title"
+                    placeholder="Ex: Développeur backend"
+                  />
                 </UFormGroup>
                 <UFormGroup label="Nombre maximum">
-                  <UInput v-model.number="importForm.limit" type="number" min="1" max="25" />
+                  <UInput
+                    v-model.number="importForm.limit"
+                    type="number"
+                    min="1"
+                    max="25"
+                  />
+                </UFormGroup>
+                <UFormGroup label="Mots-clés" class="md:col-span-2">
+                  <UInput
+                    v-model="importForm.keywords"
+                    placeholder="Ex: nodejs, docker, nest"
+                  />
                 </UFormGroup>
               </div>
               <UButton :loading="importingOffers" block @click="importOffers">
                 Scraper et importer
               </UButton>
-            </div>
+            </template>
 
-            <UAlert
-              v-else
-              color="amber"
-              variant="soft"
-              title="Import automatique restreint"
-              description="Seul le compte autorisé peut gérer l'import automatique des offres."
-            />
-
-            <div class="panel-block">
+            <template #manualImport>
               <h3>Saisie manuelle</h3>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <UFormGroup label="Titre du poste">
-                  <UInput v-model="jobForm.title" placeholder="Ex: Développeur Full Stack Senior" />
+                  <UInput
+                    v-model="jobForm.title"
+                    placeholder="Ex: Développeur Full Stack Senior"
+                  />
                 </UFormGroup>
                 <UFormGroup label="Entreprise">
                   <UInput v-model="jobForm.company" placeholder="Ex: Google" />
                 </UFormGroup>
                 <UFormGroup label="Localisation">
-                  <UInput v-model="jobForm.location" placeholder="Ex: Paris, France" />
+                  <UInput
+                    v-model="jobForm.location"
+                    placeholder="Ex: Paris, France"
+                  />
                 </UFormGroup>
                 <UFormGroup label="Lien de candidature">
                   <UInput
@@ -98,19 +126,16 @@
                   />
                 </UFormGroup>
               </div>
-              <UButton :loading="addingJob" block @click="addJobOffer">
+              <UButton
+                class="mt-4"
+                :loading="addingJob"
+                block
+                @click="addJobOffer"
+              >
                 Analyser l'offre
               </UButton>
-            </div>
-
-            <UAlert
-              v-if="importFeedback"
-              :color="importFeedback.color"
-              variant="soft"
-              :title="importFeedback.title"
-              :description="importFeedback.description"
-            />
-          </div>
+            </template>
+          </UTabs>
         </UCard>
 
         <UCard v-if="jobOfferStore.jobOffers.length > 0" class="panel-card">
@@ -158,7 +183,11 @@
                   @click.stop
                 />
               </div>
-              <button type="button" class="offer-content" @click="selectJob(job)">
+              <button
+                type="button"
+                class="offer-content"
+                @click="selectJob(job)"
+              >
                 <div class="offer-main">
                   <div>
                     <h3>{{ job.title }}</h3>
@@ -295,7 +324,9 @@
 
             <div v-if="aiStore.result" class="panel-block">
               <div v-if="aiStore.result.compatibilityScore" class="score-block">
-                <p class="score-value">{{ aiStore.result.compatibilityScore }}%</p>
+                <p class="score-value">
+                  {{ aiStore.result.compatibilityScore }}%
+                </p>
                 <p class="score-label">Score de compatibilité</p>
               </div>
 
@@ -303,12 +334,18 @@
                 <h3>Modifications apportées</h3>
                 <ul class="space-y-1">
                   <li
-                    v-for="(change, i) in (aiStore.result.changes as any[])"
+                    v-for="(change, i) in aiStore.result.changes as any[]"
                     :key="i"
                     class="text-sm text-gray-600 dark:text-gray-400 flex items-start gap-2"
                   >
-                    <UIcon name="i-heroicons-check-circle" class="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
-                    <span><strong>{{ change.section }}</strong>: {{ change.description }}</span>
+                    <UIcon
+                      name="i-heroicons-check-circle"
+                      class="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0"
+                    />
+                    <span
+                      ><strong>{{ change.section }}</strong
+                      >: {{ change.description }}</span
+                    >
                   </li>
                 </ul>
               </div>
@@ -317,7 +354,7 @@
                 <h3>Mots-clés ajoutés</h3>
                 <div class="flex flex-wrap gap-1">
                   <UBadge
-                    v-for="kw in (aiStore.result.addedKeywords as string[])"
+                    v-for="kw in aiStore.result.addedKeywords as string[]"
                     :key="kw"
                     size="xs"
                     color="green"
@@ -356,8 +393,10 @@
             <div>
               <h3 class="text-lg font-semibold">{{ activeJobOffer.title }}</h3>
               <p class="text-sm text-gray-500">
-                {{ activeJobOffer.company || 'Entreprise non précisée' }}
-                <span v-if="activeJobOffer.location"> - {{ activeJobOffer.location }}</span>
+                {{ activeJobOffer.company || "Entreprise non précisée" }}
+                <span v-if="activeJobOffer.location">
+                  - {{ activeJobOffer.location }}</span
+                >
               </p>
             </div>
             <UButton
@@ -371,7 +410,12 @@
 
         <div class="space-y-4">
           <div class="flex flex-wrap gap-2">
-            <UBadge v-if="activeJobOffer.platform" size="sm" variant="soft" color="primary">
+            <UBadge
+              v-if="activeJobOffer.platform"
+              size="sm"
+              variant="soft"
+              color="primary"
+            >
               {{ activeJobOffer.platform }}
             </UBadge>
             <UBadge size="sm" variant="soft" color="gray">
@@ -379,7 +423,10 @@
             </UBadge>
           </div>
 
-          <div v-if="activeJobOffer.applicationUrl || activeJobOffer.sourceUrl" class="flex flex-wrap gap-2">
+          <div
+            v-if="activeJobOffer.applicationUrl || activeJobOffer.sourceUrl"
+            class="flex flex-wrap gap-2"
+          >
             <UButton
               :to="activeJobOffer.applicationUrl || activeJobOffer.sourceUrl"
               target="_blank"
@@ -392,7 +439,11 @@
             </UButton>
 
             <UButton
-              v-if="activeJobOffer.sourceUrl && activeJobOffer.sourceUrl !== (activeJobOffer.applicationUrl || activeJobOffer.sourceUrl)"
+              v-if="
+                activeJobOffer.sourceUrl &&
+                activeJobOffer.sourceUrl !==
+                  (activeJobOffer.applicationUrl || activeJobOffer.sourceUrl)
+              "
               :to="activeJobOffer.sourceUrl"
               target="_blank"
               rel="noopener noreferrer"
@@ -407,7 +458,9 @@
 
           <div>
             <h4 class="font-medium mb-2">Description complète</h4>
-            <div class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line leading-6">
+            <div
+              class="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line leading-6"
+            >
               {{ activeJobOffer.description }}
             </div>
           </div>
@@ -456,17 +509,17 @@
 </template>
 
 <script setup lang="ts">
-import type { JobOffer } from '~/stores/jobOffer';
+import type { JobOffer } from "~/stores/jobOffer";
 
 const cvStore = useCvStore();
 const jobOfferStore = useJobOfferStore();
 const aiStore = useAiStore();
 const authStore = useAuthStore();
 
-const AUTO_IMPORT_ALLOWED_EMAIL = 'amirotalbi94@gmail.com';
+const AUTO_IMPORT_ALLOWED_EMAIL = "amirotalbi94@gmail.com";
 
-const selectedCvId = ref('');
-const selectedJobId = ref('');
+const selectedCvId = ref("");
+const selectedJobId = ref("");
 const addingJob = ref(false);
 const importingOffers = ref(false);
 const deletingOffers = ref(false);
@@ -474,32 +527,51 @@ const showJobDetailsModal = ref(false);
 const activeJobOffer = ref<JobOffer | null>(null);
 const selectedOfferIds = ref<string[]>([]);
 const importFeedback = ref<{
-  color: 'green' | 'amber' | 'red';
+  color: "green" | "amber" | "red";
   title: string;
   description: string;
 } | null>(null);
 
+const items = [
+  {
+    label: "Importer par URL",
+    icon: "i-iconoir:import",
+    slot: "urlImport",
+  },
+  {
+    label: "Importer automatiquement",
+    icon: "i-mdi:automatic",
+    slot: "autoImport",
+  },
+  {
+    label: "Importer manuellement",
+    icon: "i-boxicons:hand",
+    slot: "manualImport",
+  },
+];
+
 const jobForm = reactive({
-  title: '',
-  description: '',
-  company: '',
-  location: '',
-  applicationUrl: '',
+  title: "",
+  description: "",
+  company: "",
+  location: "",
+  applicationUrl: "",
 });
 
 const importForm = reactive({
-  platform: 'linkedin' as 'linkedin' | 'indeed' | 'hellowork',
-  keywords: '',
-  location: '',
+  platform: "linkedin" as "linkedin" | "indeed" | "hellowork",
+  title: "",
+  keywords: "",
+  location: "",
   limit: 10,
 });
 
-const urlToImport = ref('');
+const urlToImport = ref("");
 
 const platformOptions = [
-  { label: 'LinkedIn', value: 'linkedin' },
-  { label: 'Indeed', value: 'indeed' },
-  { label: 'Hellowork', value: 'hellowork' },
+  { label: "LinkedIn", value: "linkedin" },
+  { label: "Indeed", value: "indeed" },
+  { label: "Hellowork", value: "hellowork" },
 ];
 
 const canManageAutoImport = computed(
@@ -518,21 +590,22 @@ const cvOptions = computed(() =>
 
 const jobOptions = computed(() =>
   jobOfferStore.jobOffers.map((j) => ({
-    label: `${j.title} - ${j.company || 'N/A'}`,
+    label: `${j.title} - ${j.company || "N/A"}`,
     value: j.id,
   })),
 );
 
-const allOffersSelected = computed(() =>
-  jobOfferStore.jobOffers.length > 0 &&
-  selectedOfferIds.value.length === jobOfferStore.jobOffers.length,
+const allOffersSelected = computed(
+  () =>
+    jobOfferStore.jobOffers.length > 0 &&
+    selectedOfferIds.value.length === jobOfferStore.jobOffers.length,
 );
 
 const formatDate = (date: string) =>
-  new Date(date).toLocaleDateString('fr-FR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
+  new Date(date).toLocaleDateString("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
   });
 
 const selectJob = (job: JobOffer) => {
@@ -553,23 +626,23 @@ const useActiveOfferForOptimization = () => {
 const importOffers = async () => {
   if (!canManageAutoImport.value) {
     importFeedback.value = {
-      color: 'red',
-      title: 'Accès refusé',
-      description: 'Vous n\'êtes pas autorisé à gérer l\'import automatique.',
+      color: "red",
+      title: "Accès refusé",
+      description: "Vous n'êtes pas autorisé à gérer l'import automatique.",
     };
     return;
   }
 
   const keywords = importForm.keywords
-    .split(',')
+    .split(",")
     .map((keyword) => keyword.trim())
     .filter(Boolean);
 
   if (!keywords.length) {
     importFeedback.value = {
-      color: 'red',
-      title: 'Import impossible',
-      description: 'Ajoutez au moins un mot-clé.',
+      color: "red",
+      title: "Import impossible",
+      description: "Ajoutez au moins un mot-clé.",
     };
     return;
   }
@@ -580,29 +653,38 @@ const importOffers = async () => {
   try {
     const result = await jobOfferStore.importJobOffers({
       platform: importForm.platform,
+      title: importForm.title,
       keywords,
       location: importForm.location.trim() || undefined,
       limit: Math.max(1, Math.min(importForm.limit || 10, 25)),
     });
+
+    const es = jobOfferStore.startOffersStream(authStore.user?.id || '');
+    // Ferme le stream quand le composant est démonté
+    onUnmounted(() => es.close());
 
     if (result.offers.length > 0) {
       selectedJobId.value = result.offers[0].id;
     }
 
     const warnings = result.warnings?.length
-      ? ` Avertissements: ${result.warnings.join(' | ')}`
-      : '';
+      ? ` Avertissements: ${result.warnings.join(" | ")}`
+      : "";
 
     importFeedback.value = {
-      color: result.imported > 0 ? 'green' : 'amber',
+      color: result.imported > 0 ? "green" : "amber",
       title: `${result.imported} offre(s) importée(s), ${result.skipped} ignorée(s)`,
-      description: warnings || 'Les offres importées sont prêtes pour l’optimisation IA.',
+      description:
+        warnings || "Les offres importées sont prêtes pour l’optimisation IA.",
     };
   } catch (error) {
     importFeedback.value = {
-      color: 'red',
-      title: 'Erreur pendant l’import',
-      description: error instanceof Error ? error.message : 'Échec de l’import automatique',
+      color: "red",
+      title: "Erreur pendant l’import",
+      description:
+        error instanceof Error
+          ? error.message
+          : "Échec de l’import automatique",
     };
   } finally {
     importingOffers.value = false;
@@ -612,18 +694,18 @@ const importOffers = async () => {
 const importByUrl = async () => {
   if (!canManageAutoImport.value) {
     importFeedback.value = {
-      color: 'red',
-      title: 'Accès refusé',
-      description: 'Vous n\'êtes pas autorisé à gérer l\'import automatique.',
+      color: "red",
+      title: "Accès refusé",
+      description: "Vous n'êtes pas autorisé à gérer l'import automatique.",
     };
     return;
   }
 
   if (!urlToImport.value || !/^https?:\/\//i.test(urlToImport.value.trim())) {
     importFeedback.value = {
-      color: 'red',
-      title: 'URL invalide',
-      description: 'Veuillez coller une URL valide.',
+      color: "red",
+      title: "URL invalide",
+      description: "Veuillez coller une URL valide.",
     };
     return;
   }
@@ -632,22 +714,27 @@ const importByUrl = async () => {
   importFeedback.value = null;
 
   try {
-    const job = await jobOfferStore.importJobOfferByUrl({ url: urlToImport.value.trim() });
+    const job = await jobOfferStore.importJobOfferByUrl({
+      url: urlToImport.value.trim(),
+    });
 
     if (job) {
       selectedJobId.value = job.id;
       importFeedback.value = {
-        color: 'green',
-        title: 'Offre importée',
-        description: 'L\'offre a été ajoutée et est prête pour l\'optimisation.',
+        color: "green",
+        title: "Offre importée",
+        description: "L'offre a été ajoutée et est prête pour l'optimisation.",
       };
-      urlToImport.value = '';
+      urlToImport.value = "";
     }
   } catch (error) {
     importFeedback.value = {
-      color: 'red',
-      title: 'Erreur pendant l\'import',
-      description: error instanceof Error ? error.message : 'Échec de l\'import depuis l\'URL',
+      color: "red",
+      title: "Erreur pendant l'import",
+      description:
+        error instanceof Error
+          ? error.message
+          : "Échec de l'import depuis l'URL",
     };
   } finally {
     importingOffers.value = false;
@@ -666,11 +753,11 @@ const addJobOffer = async () => {
       applicationUrl: jobForm.applicationUrl.trim() || undefined,
     });
     selectedJobId.value = job.id;
-    jobForm.title = '';
-    jobForm.description = '';
-    jobForm.company = '';
-    jobForm.location = '';
-    jobForm.applicationUrl = '';
+    jobForm.title = "";
+    jobForm.description = "";
+    jobForm.company = "";
+    jobForm.location = "";
+    jobForm.applicationUrl = "";
   } catch {
     // error handled by store
   } finally {
@@ -680,14 +767,18 @@ const addJobOffer = async () => {
 
 const deleteJob = async (id: string) => {
   await jobOfferStore.deleteJobOffer(id);
-  if (selectedJobId.value === id) selectedJobId.value = '';
-  selectedOfferIds.value = selectedOfferIds.value.filter((offerId) => offerId !== id);
+  if (selectedJobId.value === id) selectedJobId.value = "";
+  selectedOfferIds.value = selectedOfferIds.value.filter(
+    (offerId) => offerId !== id,
+  );
   await Promise.all([cvStore.fetchCvs(), jobOfferStore.fetchJobOffers()]);
 };
 
 const toggleOffer = (id: string) => {
   if (selectedOfferIds.value.includes(id)) {
-    selectedOfferIds.value = selectedOfferIds.value.filter((offerId) => offerId !== id);
+    selectedOfferIds.value = selectedOfferIds.value.filter(
+      (offerId) => offerId !== id,
+    );
     return;
   }
   selectedOfferIds.value = [...selectedOfferIds.value, id];
@@ -708,7 +799,7 @@ const bulkDeleteOffers = async () => {
   try {
     await jobOfferStore.deleteJobOffers(idsToDelete);
     if (selectedJobId.value && idsToDelete.includes(selectedJobId.value)) {
-      selectedJobId.value = '';
+      selectedJobId.value = "";
     }
     selectedOfferIds.value = [];
     await Promise.all([cvStore.fetchCvs(), jobOfferStore.fetchJobOffers()]);
@@ -726,13 +817,15 @@ const applyOptimization = async () => {
   if (!aiStore.result?.optimizedContent || !selectedCvId.value) return;
 
   const sourceCv = cvStore.cvs.find((cv) => cv.id === selectedCvId.value);
-  const selectedJob = jobOfferStore.jobOffers.find((job) => job.id === selectedJobId.value);
+  const selectedJob = jobOfferStore.jobOffers.find(
+    (job) => job.id === selectedJobId.value,
+  );
 
-  const baseTitle = (sourceCv?.title || 'CV').trim();
+  const baseTitle = (sourceCv?.title || "CV").trim();
   const companyOrJob =
     (selectedJob?.company && selectedJob.company.trim()) ||
     (selectedJob?.title && selectedJob.title.trim()) ||
-    'Optimisation IA';
+    "Optimisation IA";
 
   const nextTitle = `${baseTitle} - ${companyOrJob}`.slice(0, 200);
 
@@ -760,10 +853,16 @@ const copyCoverLetter = async () => {
 
 <style scoped>
 .job-matcher-page {
+  @apply rounded-lg py-4;
   font-family: inherit;
   padding: 0 clamp(16px, 2vw, 32px) 32px;
   margin: 0 calc(-1 * clamp(16px, 2vw, 32px));
-  background: radial-gradient(circle at top, #111a2e 0%, #0b1220 60%, #0a0f1c 100%);
+  background: radial-gradient(
+    circle at top,
+    #111a2e 0%,
+    #0b1220 60%,
+    #0a0f1c 100%
+  );
   min-height: 100vh;
   width: 100%;
 }
@@ -923,7 +1022,10 @@ const copyCoverLetter = async () => {
   border-radius: 14px;
   border: 1px solid #1f2a44;
   background: #0f172a;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
 }
 
 .offer-card:hover {

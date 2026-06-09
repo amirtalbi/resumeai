@@ -1,5 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { chunk } from "lodash";
+import { ScrapedJobOffer } from "src/job-offer/dto/job-offer.dto";
 
 export interface OllamaResponse {
   model: string;
@@ -30,31 +32,28 @@ export class OllamaService {
 
   constructor(private readonly configService: ConfigService) {
     this.baseUrl = this.configService.get<string>(
-      'OLLAMA_BASE_URL',
-      'http://localhost:11434',
+      "OLLAMA_BASE_URL",
+      "http://localhost:11434",
     );
-    this.model = this.configService.get<string>(
-      'OLLAMA_MODEL',
-      'mistral',
-    );
+    this.model = this.configService.get<string>("OLLAMA_MODEL", "mistral");
     this.timeoutMs = Number(
-      this.configService.get<string>('OLLAMA_TIMEOUT_MS', '300000'),
+      this.configService.get<string>("OLLAMA_TIMEOUT_MS", "300000"),
     );
     this.numPredict = Number(
-      this.configService.get<string>('OLLAMA_NUM_PREDICT', '1024'),
+      this.configService.get<string>("OLLAMA_NUM_PREDICT", "1024"),
     );
     this.numCtx = Number(
-      this.configService.get<string>('OLLAMA_NUM_CTX', '8192'),
+      this.configService.get<string>("OLLAMA_NUM_CTX", "8192"),
     );
     this.numGpu = Number(
-      this.configService.get<string>('OLLAMA_NUM_GPU', '99'),
+      this.configService.get<string>("OLLAMA_NUM_GPU", "99"),
     );
   }
 
   async generate(prompt: string): Promise<string> {
     try {
       const response = await this.postJson<{ response: string }>(
-        '/api/generate',
+        "/api/generate",
         {
           model: this.model,
           prompt,
@@ -85,17 +84,85 @@ export class OllamaService {
         return this.generate(prompt);
       }
 
-      this.logger.error('Ollama API call failed', error);
+      this.logger.error("Ollama API call failed", error);
       throw new Error(
-        `Failed to generate AI response: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        `Failed to generate AI response: ${error instanceof Error ? error.message : "Unknown error"}`,
       );
     }
+  }
+
+  async llmFilter(
+    keywords: string[],
+    jobOffers: ScrapedJobOffer[],
+  ): Promise<ScrapedJobOffer[]> {
+    const scored: { id: string; score: number }[] = [];
+
+    for (const offer of jobOffers) {
+      const prompt = this.buildPrompt(keywords, [
+        {
+          id: offer.uid,
+          jd: (offer.description ?? "").slice(0, 1500),
+        },
+      ]);
+
+      try {
+        const response = await this.postJson<{ response: string }>(
+          "/api/generate",
+          {
+            model: this.model,
+            prompt,
+            stream: false,
+            format: "json",
+            options: {
+              temperature: 0.1,
+              num_predict: 256,
+              num_ctx: this.numCtx,
+              num_gpu: this.numGpu,
+            },
+          },
+          this.timeoutMs,
+        );
+
+        const parsed =
+          typeof response.response === "string"
+            ? JSON.parse(response.response)
+            : response.response;
+
+        const result = parsed?.results?.[0];
+        if (result?.id && typeof result.score === "number") {
+          scored.push({ id: result.id, score: result.score });
+          this.logger.log(`Scored ${result.id}: ${result.score}`);
+        }
+      } catch (error) {
+        this.logger.error(`Scoring failed for ${offer.uid}`, error);
+        // skip offer, continue
+      }
+    }
+
+    const scoreMap = new Map(scored.map((r) => [r.id, r.score]));
+
+    return jobOffers
+      .filter((o) => (scoreMap.get(o.uid) ?? 0) >= 65)
+      .sort((a, b) => (scoreMap.get(b.uid) ?? 0) - (scoreMap.get(a.uid) ?? 0));
+  }
+
+  private buildPrompt(
+    keywords: string[],
+    batch: { id: string; jd: string }[],
+  ): string {
+    return `
+        Analyse ces offres. JSON uniquement, sans markdown.
+        Format: {"results":[{"id":"...","score":0-100,"reason":"..."}]}
+        Mots-clés: ${keywords.join(", ")}
+        Offres:
+        ${batch.map((o) => `ID:${o.id}\n${o.jd}`).join("\n---\n")}`
+      ;
   }
 
   private async pullModel(): Promise<void> {
     try {
       await this.postJson(
-        '/api/pull',
+        "/api/pull",
         {
           model: this.model,
           stream: false,
@@ -111,21 +178,24 @@ export class OllamaService {
 
   async isAvailable(): Promise<boolean> {
     try {
-      await this.getJson('/api/tags', 5000);
+      await this.getJson("/api/tags", 5000);
       return true;
     } catch {
       return false;
     }
   }
 
-  private async getJson<T = unknown>(path: string, timeoutMs: number): Promise<T> {
+  private async getJson<T = unknown>(
+    path: string,
+    timeoutMs: number,
+  ): Promise<T> {
     const url = `${this.baseUrl}${path}`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
       const response = await fetch(url, {
-        method: 'GET',
+        method: "GET",
         signal: controller.signal,
       });
 
@@ -155,9 +225,9 @@ export class OllamaService {
 
     try {
       const response = await fetch(url, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
         signal: controller.signal,
@@ -214,8 +284,8 @@ ${JSON.stringify(cvContent, null, 2)}
 OFFRE D'EMPLOI:
 ${jobDescription}
 
-MOTS-CLÉS IMPORTANTS: ${keywords.join(', ')}
-COMPÉTENCES REQUISES: ${requiredSkills.join(', ')}
+MOTS-CLÉS IMPORTANTS: ${keywords.join(", ")}
+COMPÉTENCES REQUISES: ${requiredSkills.join(", ")}
 
 Réponds avec un JSON valide contenant:
 {
@@ -228,41 +298,41 @@ Réponds avec un JSON valide contenant:
 }`;
   }
 
-  private detectCvLanguage(cvContent: Record<string, unknown>): 'fr' | 'en' {
+  private detectCvLanguage(cvContent: Record<string, unknown>): "fr" | "en" {
     const text = JSON.stringify(cvContent).toLowerCase();
 
     const frenchMarkers = [
-      ' le ',
-      ' la ',
-      ' les ',
-      ' des ',
-      ' et ',
-      ' avec ',
-      ' pour ',
-      ' en ',
-      'de ',
-      'diplome',
-      'experience',
-      'projet',
-      'responsable',
-      'developpeur',
-      'francais',
+      " le ",
+      " la ",
+      " les ",
+      " des ",
+      " et ",
+      " avec ",
+      " pour ",
+      " en ",
+      "de ",
+      "diplome",
+      "experience",
+      "projet",
+      "responsable",
+      "developpeur",
+      "francais",
     ];
     const englishMarkers = [
-      ' the ',
-      ' and ',
-      ' with ',
-      ' for ',
-      ' in ',
-      ' of ',
-      'experience',
-      'project',
-      'responsible',
-      'developer',
-      'english',
-      'summary',
-      'skills',
-      'education',
+      " the ",
+      " and ",
+      " with ",
+      " for ",
+      " in ",
+      " of ",
+      "experience",
+      "project",
+      "responsible",
+      "developer",
+      "english",
+      "summary",
+      "skills",
+      "education",
     ];
 
     const frenchScore = frenchMarkers.reduce(
@@ -274,6 +344,6 @@ Réponds avec un JSON valide contenant:
       0,
     );
 
-    return frenchScore >= englishScore ? 'fr' : 'en';
+    return frenchScore >= englishScore ? "fr" : "en";
   }
 }

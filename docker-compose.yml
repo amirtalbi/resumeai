@@ -117,6 +117,15 @@ services:
         limits:
           memory: 24G
 
+  bullboard:
+    image: deadly0/bull-board
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      PORT: 3002
+    networks:
+      - app-network
+
 volumes:
   postgres-data:
   redis-data:

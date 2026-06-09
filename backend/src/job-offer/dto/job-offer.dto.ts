@@ -13,6 +13,17 @@ import {
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
+export interface ScrapedJobOffer {
+  uid: string;
+  externalId?: string;
+  title: string;
+  description: string;
+  company?: string;
+  location?: string;
+  sourceUrl?: string;
+  applicationUrl?: string;
+}
+
 export enum JobOfferPlatform {
   LINKEDIN = 'linkedin',
   INDEED = 'indeed',
@@ -85,6 +96,10 @@ export class ImportJobOffersDto {
   @ApiProperty({ enum: JobOfferPlatform, example: JobOfferPlatform.LINKEDIN })
   @IsEnum(JobOfferPlatform)
   platform: JobOfferPlatform;
+
+  @ApiProperty({ type: String, example: 'Développeur backend'})
+  @IsString()
+  title: string;
 
   @ApiProperty({
     type: [String],
