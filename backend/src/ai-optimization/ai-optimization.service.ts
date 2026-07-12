@@ -129,7 +129,7 @@ export class AiOptimizationService {
 4. Garde un ton professionnel et convaincant.
 5. Pas de puces, uniquement des paragraphes.
 6. Réponds uniquement avec le texte de la lettre, sans titre, sans JSON, sans markdown.
-7. LIMITE STRICTE: maximum 500 mots.`;
+7. LIMITE STRICTE: maximum 1000 mots.`;
 
     return `${intro}
 
@@ -149,10 +149,10 @@ ${jobDescription}
   private trimCoverLetter(text: string): string {
     const cleaned = text.replace(/^[\s\r\n]+|[\s\r\n]+$/g, '');
     const words = cleaned.split(/\s+/).filter(Boolean);
-    if (words.length <= 500) {
+    if (words.length <= 1000) {
       return cleaned;
     }
 
-    return words.slice(0, 500).join(' ');
+    return words.slice(0, 1000).join(' ');
   }
 }

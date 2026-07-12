@@ -9,7 +9,7 @@ services:
       - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
       - ./traefik/dynamic.yml:/etc/traefik/dynamic.yml:ro
     networks:
-      - app-network
+      - ollama_net
     restart: unless-stopped
 
   # Frontend - Nuxt 3
@@ -24,7 +24,7 @@ services:
       - backend
       - traefik
     networks:
-      - app-network
+      - ollama_net
     restart: unless-stopped
 
   # Backend - NestJS
@@ -64,9 +64,23 @@ services:
       traefik:
         condition: service_started
     networks:
-      - app-network
+      - ollama_net
     restart: unless-stopped
 
+  pgadmin:
+    image: elestio/pgadmin:latest
+    restart: always
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=root@root.me
+      - PGADMIN_DEFAULT_PASSWORD=rootroot
+      - PGADMIN_LISTEN_PORT=8888
+    ports:
+    - "8888:8888"
+    volumes:
+    - ./servers.json:/pgadmin4/servers.json
+    networks:
+      - ollama_net
+  
   # PostgreSQL
   postgres:
     image: postgres:16-alpine
@@ -74,6 +88,8 @@ services:
       - POSTGRES_USER=resumeai
       - POSTGRES_PASSWORD=resumeai_secret
       - POSTGRES_DB=resumeai
+    ports:
+    - '5432:5432'
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -82,7 +98,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - app-network
+      - ollama_net
     restart: unless-stopped
 
   # Redis
@@ -96,7 +112,7 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - app-network
+      - ollama_net
     restart: unless-stopped
 
   # Ollama - AI Local
@@ -107,10 +123,11 @@ services:
       - OLLAMA_FLASH_ATTENTION=1
       - OLLAMA_KEEP_ALIVE=-1
       - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_CONTEXT_LENGTH=65536
     volumes:
       - ollama-data:/root/.ollama
     networks:
-      - app-network
+      - ollama_net
     restart: unless-stopped
     deploy:
       resources:
@@ -124,7 +141,7 @@ services:
       REDIS_PORT: 6379
       PORT: 3002
     networks:
-      - app-network
+      - ollama_net
 
 volumes:
   postgres-data:
@@ -132,5 +149,5 @@ volumes:
   ollama-data:
 
 networks:
-  app-network:
+  ollama_net:
     driver: bridge

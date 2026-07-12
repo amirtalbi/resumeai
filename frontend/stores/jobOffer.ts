@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 
-export type JobOfferPlatform = "linkedin" | "indeed" | "hellowork";
+export type JobOfferPlatform = "linkedin" | "indeed" | "hellowork" | "wttj";
 
 export interface JobOffer {
   id: string;

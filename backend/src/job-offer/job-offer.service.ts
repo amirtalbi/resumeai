@@ -342,6 +342,8 @@ export class JobOfferService {
       platform = JobOfferPlatform.HELLOWORK;
     } else if (/indeed\.com/i.test(trimmed) || /indeed\.fr/i.test(trimmed)) {
       platform = JobOfferPlatform.INDEED;
+    } else if (/welcometothejungle\.com/i.test(trimmed)) {
+      platform = JobOfferPlatform.WTTJ;
     } else {
       throw new BadRequestException("Unsupported job platform in URL");
     }
@@ -442,6 +444,17 @@ export class JobOfferService {
           location: undefined,
           sourceUrl: trimmed,
           applicationUrl: trimmed,
+        };
+      } else if (platform === JobOfferPlatform.WTTJ) {
+        const details = await this.fetchWttjDetails(trimmed);
+        scraped = {
+          uid: randomUUID(),
+          title: details.title || "",
+          description: details.description || details.title || "",
+          company: details.company || undefined,
+          location: details.location || undefined,
+          sourceUrl: trimmed,
+          applicationUrl: details.applicationUrl || trimmed,
         };
       }
     } catch (err) {
@@ -812,6 +825,8 @@ export class JobOfferService {
         return this.scrapeHellowork(title, location, limit);
       case JobOfferPlatform.INDEED:
         return this.scrapeIndeed(title, location, limit);
+      case JobOfferPlatform.WTTJ:
+        return this.scrapeWttj(title, location, limit);
       default:
         return [];
     }
@@ -1155,6 +1170,136 @@ export class JobOfferService {
     }
 
     return offers;
+  }
+
+  private async scrapeWttj(
+    title: string,
+    location: string | undefined,
+    limit: number,
+  ): Promise<ScrapedJobOffer[]> {
+    const encodedTitle = encodeURIComponent(title);
+    const searchUrl = `https://www.welcometothejungle.com/fr/jobs?query=${encodedTitle}`;
+    const searchHtml = await this.fetchText(searchUrl);
+
+    if (
+      /Just a moment/i.test(searchHtml) ||
+      /Enable JavaScript and cookies to continue/i.test(searchHtml) ||
+      /cf_chl_opt/i.test(searchHtml)
+    ) {
+      throw new Error(
+        "Welcome to the Jungle currently blocks automated server requests (anti-bot challenge). Try LinkedIn/Hellowork or import manually.",
+      );
+    }
+
+    const jobUrls = new Set<string>();
+    const linkRegex =
+      /href="(\/(?:fr|en)\/companies\/[a-z0-9-]+\/jobs\/[a-z0-9-]+)"/gi;
+
+    for (const match of searchHtml.matchAll(linkRegex)) {
+      const path = match[1];
+      if (!path) {
+        continue;
+      }
+      jobUrls.add(`https://www.welcometothejungle.com${path}`);
+      if (jobUrls.size >= limit) {
+        break;
+      }
+    }
+
+    const results: ScrapedJobOffer[] = [];
+    for (const jobUrl of jobUrls) {
+      const details = await this.fetchWttjDetails(jobUrl);
+      if (!details.title) {
+        continue;
+      }
+
+      results.push({
+        uid: randomUUID(),
+        title: details.title,
+        company: details.company || undefined,
+        location: details.location || location || undefined,
+        description:
+          details.description ||
+          `${details.title} chez ${details.company || "une entreprise"} (${location || "France"}).`,
+        sourceUrl: jobUrl,
+        applicationUrl: details.applicationUrl || jobUrl,
+      });
+
+      if (results.length >= limit) {
+        break;
+      }
+    }
+
+    return results;
+  }
+
+  private async fetchWttjDetails(
+    detailsUrl: string,
+  ): Promise<
+    Pick<
+      ScrapedJobOffer,
+      "title" | "company" | "location" | "description" | "applicationUrl"
+    >
+  > {
+    try {
+      const detailsHtml = await this.fetchText(detailsUrl);
+      const posting = this.extractJsonLdJobPosting(detailsHtml);
+
+      if (!posting) {
+        const metaTitle =
+          this.extractFirstMatch(
+            detailsHtml,
+            /<meta property="og:title" content="([^"]+)"/i,
+          ) ||
+          this.extractFirstMatch(detailsHtml, /<title>([\s\S]*?)<\/title>/i) ||
+          "";
+
+        return {
+          title: this.normalizeText(this.decodeHtmlEntities(metaTitle)),
+          company: "",
+          location: "",
+          description: "",
+          applicationUrl: detailsUrl,
+        };
+      }
+
+      const title = this.normalizeText(this.toStringValue(posting.title));
+      const description = this.normalizeText(
+        this.stripHtml(this.toStringValue(posting.description)),
+      );
+      const company = this.normalizeText(
+        this.toStringValue(
+          this.getNestedValue(posting, ["hiringOrganization", "name"]),
+        ),
+      );
+      const location = this.normalizeText(
+        this.toStringValue(
+          this.getNestedValue(posting, [
+            "jobLocation",
+            "address",
+            "addressLocality",
+          ]),
+        ),
+      );
+      const applicationUrl =
+        this.normalizeText(this.toStringValue(posting.url)) || detailsUrl;
+
+      return {
+        title,
+        company,
+        location,
+        description,
+        applicationUrl,
+      };
+    } catch {
+      return {
+        title: "",
+        company: "",
+        location: "",
+        description: "",
+        applicationUrl: detailsUrl,
+      };
+    }
   }
 
   private async fetchText(url: string, timeoutMs = 15000): Promise<string> {

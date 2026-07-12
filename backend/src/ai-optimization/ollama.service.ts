@@ -294,7 +294,7 @@ Réponds avec un JSON valide contenant:
     { "section": "nom_section", "description": "description du changement" }
   ],
   "addedKeywords": ["mot1", "mot2"],
-  "compatibilityScore": 85
+  "compatibilityScore": 70
 }`;
   }
 

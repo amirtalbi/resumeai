@@ -559,7 +559,7 @@ const jobForm = reactive({
 });
 
 const importForm = reactive({
-  platform: "linkedin" as "linkedin" | "indeed" | "hellowork",
+  platform: "linkedin" as "linkedin" | "indeed" | "hellowork" | "wttj",
   title: "",
   keywords: "",
   location: "",
@@ -572,6 +572,7 @@ const platformOptions = [
   { label: "LinkedIn", value: "linkedin" },
   { label: "Indeed", value: "indeed" },
   { label: "Hellowork", value: "hellowork" },
+  { label: "Welcome to the Jungle", value: "wttj" },
 ];
 
 const canManageAutoImport = computed(

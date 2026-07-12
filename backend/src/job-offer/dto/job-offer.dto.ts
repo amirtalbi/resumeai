@@ -28,6 +28,7 @@ export enum JobOfferPlatform {
   LINKEDIN = 'linkedin',
   INDEED = 'indeed',
   HELLOWORK = 'hellowork',
+  WTTJ = 'wttj',
 }
 
 export class CreateJobOfferDto {
