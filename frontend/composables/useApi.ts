@@ -99,6 +99,31 @@ export const useApi = () => {
     return response.blob();
   };
 
+  const downloadFile = async (
+    endpoint: string,
+  ): Promise<{ blob: Blob; filename: string | null }> => {
+    const headers: Record<string, string> = {};
+    if (authStore.accessToken) {
+      headers["Authorization"] = `Bearer ${authStore.accessToken}`;
+    }
+
+    const response = await fetch(`${config.public.apiBase}${endpoint}`, {
+      method: "POST",
+      headers,
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Download error: ${response.status}`);
+    }
+
+    const disposition = response.headers.get("Content-Disposition") || "";
+    const match = /filename="?([^";]+)"?/i.exec(disposition);
+
+    return { blob: await response.blob(), filename: match ? match[1] : null };
+  };
+
   return {
     get: <T>(endpoint: string) => apiFetch<T>(endpoint),
     post: <T>(endpoint: string, body?: unknown) =>
@@ -115,6 +140,7 @@ export const useApi = () => {
       apiFetch<T>(endpoint, { method: "DELETE" }),
     upload: uploadFile,
     download: downloadBlob,
+    downloadFile,
     stream: (endpoint: string) => {
       const controller = new AbortController();
 

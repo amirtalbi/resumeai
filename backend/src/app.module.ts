@@ -5,6 +5,7 @@ import { BullModule } from "@nestjs/bull";
 import { ScheduleModule } from "@nestjs/schedule";
 import { AuthModule } from "./auth/auth.module";
 import { CvModule } from "./cv/cv.module";
+import { CvVariantModule } from "./cv-variant/cv-variant.module";
 import { JobOfferModule } from "./job-offer/job-offer.module";
 import { AiOptimizationModule } from "./ai-optimization/ai-optimization.module";
 import { PdfExportModule } from "./pdf-export/pdf-export.module";
@@ -60,6 +61,7 @@ import { BullAdapter } from "@bull-board/api/bullAdapter";
     }),
     AuthModule,
     CvModule,
+    CvVariantModule,
     JobOfferModule,
     AiOptimizationModule,
     PdfExportModule,

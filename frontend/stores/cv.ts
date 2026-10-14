@@ -19,6 +19,7 @@ export interface CvContent {
   };
   summary?: string;
   experiences: {
+    id?: string;
     company: string;
     position: string;
     startDate: string;
@@ -29,6 +30,7 @@ export interface CvContent {
     tags?: string[];
   }[];
   education: {
+    id?: string;
     institution: string;
     degree: string;
     field: string;

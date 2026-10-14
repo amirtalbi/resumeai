@@ -30,6 +30,13 @@
               >
                 Job Matcher
               </NuxtLink>
+              <NuxtLink
+                to="/variant"
+                class="px-3 py-2 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                active-class="bg-primary-50 text-primary-700 dark:bg-primary-900 dark:text-primary-300"
+              >
+                Variantes
+              </NuxtLink>
             </nav>
           </div>
           <div class="flex items-center gap-3">

@@ -43,6 +43,11 @@ class PersonalInfoDto {
 }
 
 class ExperienceDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  id?: string;
+
   @IsString()
   company: string;
 
@@ -76,6 +81,11 @@ class ExperienceDto {
 }
 
 class EducationDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  id?: string;
+
   @IsString()
   institution: string;
 

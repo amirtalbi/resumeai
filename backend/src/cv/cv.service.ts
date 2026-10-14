@@ -9,6 +9,7 @@ import { Cv, CvContent } from './entities/cv.entity';
 import { CvVersion } from './entities/cv-version.entity';
 import { CreateCvDto, UpdateCvDto } from './dto/cv.dto';
 import { OllamaService } from '../ai-optimization/ollama.service';
+import { ensureItemIds } from './cv-content.util';
 
 @Injectable()
 export class CvService {
@@ -21,6 +22,8 @@ export class CvService {
   ) {}
 
   async create(userId: string, createCvDto: CreateCvDto): Promise<Cv> {
+    ensureItemIds(createCvDto.contentJson as unknown as CvContent);
+
     const cv = this.cvRepository.create({
       userId,
       title: createCvDto.title,
@@ -74,7 +77,10 @@ export class CvService {
     const nextVersionNumber = (latestVersion?.versionNumber ?? 0) + 1;
 
     if (updateCvDto.title) cv.title = updateCvDto.title;
-    if (updateCvDto.contentJson) cv.contentJson = updateCvDto.contentJson;
+    if (updateCvDto.contentJson) {
+      ensureItemIds(updateCvDto.contentJson as unknown as CvContent);
+      cv.contentJson = updateCvDto.contentJson;
+    }
 
     const savedCv = await this.cvRepository.save(cv);
 
@@ -89,6 +95,46 @@ export class CvService {
     });
 
     return savedCv;
+  }
+
+  /**
+   * Comme findOne, mais garantit que les expériences/formations ont un id
+   * persisté (CV créés avant l'introduction des ids). Sans écriture de version.
+   */
+  async findOneWithItemIds(id: string, userId: string): Promise<Cv> {
+    const cv = await this.findOne(id, userId);
+
+    if (ensureItemIds(cv.contentJson)) {
+      return this.cvRepository.save(cv);
+    }
+
+    return cv;
+  }
+
+  /**
+   * Enregistre dans l'historique le contenu exact envoyé pour une candidature.
+   */
+  async createSnapshot(
+    cvId: string,
+    userId: string,
+    content: CvContent,
+    jobOfferId?: string,
+    meta: Record<string, unknown> = {},
+  ): Promise<CvVersion> {
+    await this.findOne(cvId, userId);
+
+    const latestVersion = await this.cvVersionRepository.findOne({
+      where: { cvId },
+      order: { versionNumber: 'DESC' },
+    });
+
+    return this.cvVersionRepository.save({
+      cvId,
+      versionNumber: (latestVersion?.versionNumber ?? 0) + 1,
+      contentJson: content as unknown as Record<string, unknown>,
+      modificationsHistory: { action: 'exported-variant', ...meta },
+      jobOfferId,
+    });
   }
 
   async remove(id: string, userId: string): Promise<void> {

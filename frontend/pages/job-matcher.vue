@@ -269,6 +269,14 @@
               </UFormGroup>
               <UButton
                 block
+                :disabled="!selectedCvId || !selectedJobId"
+                icon="i-heroicons-adjustments-horizontal"
+                @click="applyWithVariant"
+              >
+                Candidater (variante auto)
+              </UButton>
+              <UButton
+                block
                 :loading="aiStore.optimizing"
                 :disabled="!selectedCvId || !selectedJobId"
                 icon="i-heroicons-cpu-chip"
@@ -807,6 +815,13 @@ const bulkDeleteOffers = async () => {
   } finally {
     deletingOffers.value = false;
   }
+};
+
+const applyWithVariant = () => {
+  navigateTo({
+    path: "/variant",
+    query: { cvId: selectedCvId.value, jobOfferId: selectedJobId.value },
+  });
 };
 
 const optimize = async () => {
