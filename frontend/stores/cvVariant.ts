@@ -6,6 +6,7 @@ export interface VariantRules {
   excludeTags: string[];
   hiddenItemIds: string[];
   skillOrder: string[];
+  itemOrder: string[];
   overrides: { jobTitle?: string; summary?: string; language?: string };
 }
 
@@ -30,6 +31,7 @@ export const emptyRules = (): VariantRules => ({
   excludeTags: [],
   hiddenItemIds: [],
   skillOrder: [],
+  itemOrder: [],
   overrides: {},
 });
 

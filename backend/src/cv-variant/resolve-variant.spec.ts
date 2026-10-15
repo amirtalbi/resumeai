@@ -83,6 +83,41 @@ describe('resolveVariant', () => {
     expect(out.education).toEqual([]);
   });
 
+  it('réordonne expériences et formations selon itemOrder', () => {
+    const out = resolveVariant(master(), { ...emptyRules(), itemOrder: ['exp-2', 'exp-1'] });
+    expect(out.experiences.map((e) => e.id)).toEqual(['exp-2', 'exp-1']);
+    expect(out.education.map((e) => e.id)).toEqual(['edu-1']);
+  });
+
+  it('place après les éléments listés ceux absents de itemOrder, ordre d\'origine conservé', () => {
+    const m = master();
+    m.experiences.push({
+      id: 'exp-3',
+      company: 'C',
+      position: 'Dev',
+      startDate: '2020',
+      description: 'z',
+    });
+    const out = resolveVariant(m, { ...emptyRules(), itemOrder: ['exp-3'] });
+    expect(out.experiences.map((e) => e.id)).toEqual(['exp-3', 'exp-1', 'exp-2']);
+  });
+
+  it('ignore les ids inconnus et masque avant de trier', () => {
+    const out = resolveVariant(master(), {
+      ...emptyRules(),
+      itemOrder: ['inconnu', 'exp-2', 'exp-1'],
+      hiddenItemIds: ['exp-2'],
+    });
+    expect(out.experiences.map((e) => e.id)).toEqual(['exp-1']);
+  });
+
+  it('accepte des règles stockées sans itemOrder', () => {
+    const legacy = { ...emptyRules() } as Partial<ReturnType<typeof emptyRules>>;
+    delete legacy.itemOrder;
+    const out = resolveVariant(master(), legacy as ReturnType<typeof emptyRules>);
+    expect(out.experiences.map((e) => e.id)).toEqual(['exp-1', 'exp-2']);
+  });
+
   it('applique les overrides non vides uniquement', () => {
     const out = resolveVariant(master(), {
       ...emptyRules(),
@@ -124,6 +159,7 @@ describe('normalizeRules', () => {
   it('nettoie, dédoublonne et complète', () => {
     const rules = normalizeRules({ includeTags: [' a ', 'a', ''] });
     expect(rules).toEqual({ ...emptyRules(), includeTags: ['a'] });
+    expect(normalizeRules({ itemOrder: ['x', 'x', ' y '] }).itemOrder).toEqual(['x', 'y']);
   });
 });
 

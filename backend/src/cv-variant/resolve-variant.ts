@@ -15,6 +15,18 @@ export function resolveVariant(master: CvContent, rules: VariantRules): CvConten
   const include = rules.includeTags.map(norm);
   const exclude = new Set(rules.excludeTags.map(norm));
   const hidden = new Set(rules.hiddenItemIds);
+  const itemRank = new Map((rules.itemOrder ?? []).map((id, index) => [id, index]));
+
+  // Tri stable : éléments listés dans itemOrder d'abord, les autres gardent leur ordre.
+  const sortByItemOrder = <T extends { id?: string }>(items: T[]): T[] =>
+    items
+      .map((item, index) => ({
+        item,
+        index,
+        rank: item.id && itemRank.has(item.id) ? itemRank.get(item.id)! : Infinity,
+      }))
+      .sort((a, b) => (a.rank === b.rank ? a.index - b.index : a.rank - b.rank))
+      .map(({ item }) => item);
 
   const rank = (name: string): number => {
     const key = norm(name);
@@ -43,13 +55,17 @@ export function resolveVariant(master: CvContent, rules: VariantRules): CvConten
     }))
     .filter((category) => category.items.length > 0);
 
-  content.experiences = (content.experiences ?? [])
-    .filter((experience) => !experience.id || !hidden.has(experience.id))
-    .map((experience) => ({ ...experience, tags: prepareTags(experience.tags) }));
+  content.experiences = sortByItemOrder(
+    (content.experiences ?? [])
+      .filter((experience) => !experience.id || !hidden.has(experience.id))
+      .map((experience) => ({ ...experience, tags: prepareTags(experience.tags) })),
+  );
 
-  content.education = (content.education ?? [])
-    .filter((education) => !education.id || !hidden.has(education.id))
-    .map((education) => ({ ...education, tags: prepareTags(education.tags) }));
+  content.education = sortByItemOrder(
+    (content.education ?? [])
+      .filter((education) => !education.id || !hidden.has(education.id))
+      .map((education) => ({ ...education, tags: prepareTags(education.tags) })),
+  );
 
   const { jobTitle, summary, language } = rules.overrides ?? {};
   if (jobTitle?.trim()) content.personalInfo.jobTitle = jobTitle.trim();

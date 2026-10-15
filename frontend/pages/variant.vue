@@ -102,28 +102,80 @@
           </UCard>
 
           <UCard v-if="detail.master.experiences.length">
-            <template #header><h2 class="font-semibold">Expériences</h2></template>
+            <template #header>
+              <div class="flex justify-between items-center">
+                <h2 class="font-semibold">Expériences</h2>
+                <UButton
+                  v-if="rules.itemOrder.length"
+                  size="xs"
+                  variant="ghost"
+                  @click="rules.itemOrder = []"
+                >
+                  Réinitialiser l'ordre
+                </UButton>
+              </div>
+            </template>
             <div class="space-y-2">
-              <UCheckbox
-                v-for="exp in detail.master.experiences"
+              <div
+                v-for="(exp, index) in orderedExperiences"
                 :key="exp.id"
-                :model-value="isVisible(exp.id)"
-                :label="`${exp.position} — ${exp.company}`"
-                @update:model-value="(val: boolean) => setVisible(exp.id, val)"
-              />
+                class="flex items-center gap-2"
+              >
+                <UButton
+                  icon="i-heroicons-arrow-up"
+                  size="xs"
+                  variant="ghost"
+                  aria-label="Monter"
+                  :disabled="index === 0"
+                  @click="moveInVariant('experiences', index, -1)"
+                />
+                <UButton
+                  icon="i-heroicons-arrow-down"
+                  size="xs"
+                  variant="ghost"
+                  aria-label="Descendre"
+                  :disabled="index === orderedExperiences.length - 1"
+                  @click="moveInVariant('experiences', index, 1)"
+                />
+                <UCheckbox
+                  :model-value="isVisible(exp.id)"
+                  :label="`${exp.position} — ${exp.company}`"
+                  @update:model-value="(val: boolean) => setVisible(exp.id, val)"
+                />
+              </div>
             </div>
           </UCard>
 
           <UCard v-if="detail.master.education.length">
             <template #header><h2 class="font-semibold">Formations</h2></template>
             <div class="space-y-2">
-              <UCheckbox
-                v-for="edu in detail.master.education"
+              <div
+                v-for="(edu, index) in orderedEducation"
                 :key="edu.id"
-                :model-value="isVisible(edu.id)"
-                :label="`${edu.degree} — ${edu.institution}`"
-                @update:model-value="(val: boolean) => setVisible(edu.id, val)"
-              />
+                class="flex items-center gap-2"
+              >
+                <UButton
+                  icon="i-heroicons-arrow-up"
+                  size="xs"
+                  variant="ghost"
+                  aria-label="Monter"
+                  :disabled="index === 0"
+                  @click="moveInVariant('education', index, -1)"
+                />
+                <UButton
+                  icon="i-heroicons-arrow-down"
+                  size="xs"
+                  variant="ghost"
+                  aria-label="Descendre"
+                  :disabled="index === orderedEducation.length - 1"
+                  @click="moveInVariant('education', index, 1)"
+                />
+                <UCheckbox
+                  :model-value="isVisible(edu.id)"
+                  :label="`${edu.degree} — ${edu.institution}`"
+                  @update:model-value="(val: boolean) => setVisible(edu.id, val)"
+                />
+              </div>
             </div>
           </UCard>
 
@@ -164,6 +216,7 @@
 import type { Ref } from 'vue';
 import type { CvContent } from '~/stores/cv';
 import { emptyRules } from '~/stores/cvVariant';
+import { applyOrder, moveItem } from '~/utils/reorder';
 import type { VariantDetail, VariantRules } from '~/stores/cvVariant';
 
 const route = useRoute();
@@ -239,6 +292,23 @@ const cycleTag = (tag: string) => {
   else if (state === 'include') rules.excludeTags.push(tag);
 };
 
+const orderedExperiences = computed(() =>
+  detail.value ? applyOrder(detail.value.master.experiences, rules.itemOrder) : [],
+);
+const orderedEducation = computed(() =>
+  detail.value ? applyOrder(detail.value.master.education, rules.itemOrder) : [],
+);
+
+const moveInVariant = (section: 'experiences' | 'education', index: number, delta: number) => {
+  const ids = (items: { id?: string }[]) =>
+    items.map((item) => item.id).filter((id): id is string => !!id);
+  const experiences = ids(orderedExperiences.value);
+  const education = ids(orderedEducation.value);
+
+  moveItem(section === 'experiences' ? experiences : education, index, index + delta);
+  rules.itemOrder = [...experiences, ...education];
+};
+
 const isVisible = (id?: string) => !!id && !rules.hiddenItemIds.includes(id);
 const setVisible = (id: string | undefined, visible: boolean) => {
   if (!id) return;
@@ -251,6 +321,7 @@ const applyRules = (value: VariantRules) => {
   rules.excludeTags = [...value.excludeTags];
   rules.hiddenItemIds = [...value.hiddenItemIds];
   rules.skillOrder = [...value.skillOrder];
+  rules.itemOrder = [...(value.itemOrder ?? [])];
   rules.overrides = { ...value.overrides };
 };
 

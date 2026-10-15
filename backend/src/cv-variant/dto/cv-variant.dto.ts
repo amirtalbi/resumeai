@@ -57,6 +57,13 @@ export class VariantRulesDto {
   skillOrder?: string[];
 
   @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(400)
+  @IsString({ each: true })
+  @MaxLength(64, { each: true })
+  itemOrder?: string[];
+
+  @IsOptional()
   @ValidateNested()
   @Type(() => VariantOverridesDto)
   overrides?: VariantOverridesDto;

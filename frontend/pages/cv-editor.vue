@@ -113,14 +113,32 @@
               :key="index"
               class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 relative"
             >
-              <UButton
-                icon="i-heroicons-x-mark"
-                size="xs"
-                color="red"
-                variant="ghost"
-                class="absolute top-2 right-2"
-                @click="removeExperience(index)"
-              />
+              <div class="absolute top-2 right-2 flex gap-1">
+                <UButton
+                  icon="i-heroicons-arrow-up"
+                  size="xs"
+                  variant="ghost"
+                  aria-label="Monter"
+                  :disabled="index === 0"
+                  @click="moveExperience(index, -1)"
+                />
+                <UButton
+                  icon="i-heroicons-arrow-down"
+                  size="xs"
+                  variant="ghost"
+                  aria-label="Descendre"
+                  :disabled="index === cvContent.experiences.length - 1"
+                  @click="moveExperience(index, 1)"
+                />
+                <UButton
+                  icon="i-heroicons-x-mark"
+                  size="xs"
+                  color="red"
+                  variant="ghost"
+                  aria-label="Supprimer"
+                  @click="removeExperience(index)"
+                />
+              </div>
               <div class="grid grid-cols-2 gap-3">
                 <UFormGroup label="Poste">
                   <UInput v-model="exp.position" />
@@ -168,14 +186,32 @@
               :key="index"
               class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 relative"
             >
-              <UButton
-                icon="i-heroicons-x-mark"
-                size="xs"
-                color="red"
-                variant="ghost"
-                class="absolute top-2 right-2"
-                @click="removeEducation(index)"
-              />
+              <div class="absolute top-2 right-2 flex gap-1">
+                <UButton
+                  icon="i-heroicons-arrow-up"
+                  size="xs"
+                  variant="ghost"
+                  aria-label="Monter"
+                  :disabled="index === 0"
+                  @click="moveEducation(index, -1)"
+                />
+                <UButton
+                  icon="i-heroicons-arrow-down"
+                  size="xs"
+                  variant="ghost"
+                  aria-label="Descendre"
+                  :disabled="index === cvContent.education.length - 1"
+                  @click="moveEducation(index, 1)"
+                />
+                <UButton
+                  icon="i-heroicons-x-mark"
+                  size="xs"
+                  color="red"
+                  variant="ghost"
+                  aria-label="Supprimer"
+                  @click="removeEducation(index)"
+                />
+              </div>
               <div class="grid grid-cols-2 gap-3">
                 <UFormGroup label="Établissement">
                   <UInput v-model="edu.institution" />
@@ -220,14 +256,32 @@
               :key="index"
               class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 relative"
             >
-              <UButton
-                icon="i-heroicons-x-mark"
-                size="xs"
-                color="red"
-                variant="ghost"
-                class="absolute top-2 right-2"
-                @click="removeSkillCategory(index)"
-              />
+              <div class="absolute top-2 right-2 flex gap-1">
+                <UButton
+                  icon="i-heroicons-arrow-up"
+                  size="xs"
+                  variant="ghost"
+                  aria-label="Monter"
+                  :disabled="index === 0"
+                  @click="moveSkillCategory(index, -1)"
+                />
+                <UButton
+                  icon="i-heroicons-arrow-down"
+                  size="xs"
+                  variant="ghost"
+                  aria-label="Descendre"
+                  :disabled="index === cvContent.skills.length - 1"
+                  @click="moveSkillCategory(index, 1)"
+                />
+                <UButton
+                  icon="i-heroicons-x-mark"
+                  size="xs"
+                  color="red"
+                  variant="ghost"
+                  aria-label="Supprimer"
+                  @click="removeSkillCategory(index)"
+                />
+              </div>
               <UFormGroup label="Catégorie">
                 <UInput v-model="skill.category" class="mb-2" />
               </UFormGroup>
@@ -300,6 +354,7 @@
 
 <script setup lang="ts">
 import type { CvContent } from '~/stores/cv';
+import { moveItem } from '~/utils/reorder';
 
 const route = useRoute();
 const cvStore = useCvStore();
@@ -359,6 +414,18 @@ const addExperience = () => {
     achievements: [],
     tags: [],
   });
+};
+
+const moveExperience = (index: number, delta: number) => {
+  moveItem(cvContent.experiences, index, index + delta);
+};
+
+const moveEducation = (index: number, delta: number) => {
+  moveItem(cvContent.education, index, index + delta);
+};
+
+const moveSkillCategory = (index: number, delta: number) => {
+  moveItem(cvContent.skills, index, index + delta);
 };
 
 const removeExperience = (index: number) => {

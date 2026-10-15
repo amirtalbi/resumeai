@@ -12,6 +12,8 @@ export interface VariantOverrides {
  * - excludeTags : tags / compétences retirés (comparaison insensible à la casse).
  * - hiddenItemIds : expériences ou formations masquées en entier (par id).
  * - skillOrder : compétences à placer tout en haut, dans cet ordre.
+ * - itemOrder : ids d'expériences / formations dans l'ordre voulu. Les éléments
+ *   absents de la liste passent après, dans leur ordre d'origine.
  * - overrides : titre, résumé, langue spécifiques à la variante.
  *
  * Une compétence est identifiée par son nom : "NestJS" dans skills[].items
@@ -22,6 +24,7 @@ export interface VariantRules {
   excludeTags: string[];
   hiddenItemIds: string[];
   skillOrder: string[];
+  itemOrder: string[];
   overrides: VariantOverrides;
 }
 
@@ -30,6 +33,7 @@ export const emptyRules = (): VariantRules => ({
   excludeTags: [],
   hiddenItemIds: [],
   skillOrder: [],
+  itemOrder: [],
   overrides: {},
 });
 
@@ -44,6 +48,7 @@ export function normalizeRules(input?: Partial<VariantRules> | null): VariantRul
     excludeTags: list(input?.excludeTags),
     hiddenItemIds: list(input?.hiddenItemIds),
     skillOrder: list(input?.skillOrder),
+    itemOrder: list(input?.itemOrder),
     overrides: { ...(input?.overrides ?? {}) },
   };
 }
